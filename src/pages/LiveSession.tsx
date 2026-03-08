@@ -699,7 +699,37 @@ export default function LiveSession() {
 
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-5">
-              {sectionOrder.map(sectionKey => {
+              {/* Skeleton loading state */}
+              {aiSuggestions.loading && activeSuggestions.length === 0 && (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="glass-card p-3.5 space-y-2.5">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Error state */}
+              {aiSuggestions.error && !aiSuggestions.loading && activeSuggestions.length === 0 && (
+                <div className="glass-card p-5 border-destructive/30 text-center">
+                  <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2 opacity-60" />
+                  <p className="text-sm text-foreground font-medium mb-1">AI suggestions unavailable</p>
+                  <p className="text-xs text-muted-foreground mb-3">Your transcript is still being saved. Try refreshing.</p>
+                  <Button size="sm" variant="outline" onClick={handleManualRefresh} className="gap-1.5 border-border text-foreground">
+                    <RefreshCw className="w-3 h-3" />Retry
+                  </Button>
+                </div>
+              )}
+              {/* Empty state */}
+              {!aiSuggestions.loading && !aiSuggestions.error && activeSuggestions.length === 0 && (
+                <div className="text-center py-12">
+                  <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-20" />
+                  <p className="text-sm text-muted-foreground">Suggestions will appear as the conversation progresses.</p>
+                </div>
+              )}
                 const items = groupedSuggestions[sectionKey];
                 if (!items || items.length === 0) return null;
                 const isWarningSection = sectionKey === "warnings";
