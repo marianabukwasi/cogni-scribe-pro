@@ -190,9 +190,9 @@ export default function Clients() {
   const upd = (key: keyof ClientForm, val: any) => setForm(f => ({ ...f, [key]: val }));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-heading text-3xl text-foreground">Clients</h1>
+    <div className="p-4 md:p-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h1 className="font-heading text-2xl md:text-3xl text-foreground">Clients</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="w-4 h-4" />Add New {clientLabel}</Button>
@@ -352,7 +352,7 @@ export default function Clients() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4 md:mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, ID, or reference..." className="pl-10 bg-secondary border-border text-foreground placeholder:text-muted-foreground" />
@@ -381,12 +381,12 @@ export default function Clients() {
           <p className="text-muted-foreground">No results for "{search}"</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {filtered.map(c => {
             const age = getAge(c.date_of_birth);
             const sessInfo = sessionCounts[c.id];
             return (
-              <Link key={c.id} to={`/clients/${c.id}`} className="glass-card p-5 hover:border-primary/50 transition-colors">
+              <Link key={c.id} to={`/clients/${c.id}`} className="glass-card p-4 md:p-5 hover:border-primary/50 transition-colors active:scale-[0.98]">
                 <div className="flex items-start gap-3">
                   <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                     <span className="text-primary text-sm font-medium">{c.first_name[0]}{c.last_name[0]}</span>

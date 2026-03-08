@@ -232,13 +232,13 @@ export default function KnowledgeBase() {
   const readyItems = items.filter(i => i.status === "ready").length;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt" multiple onChange={handleFileSelect} />
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt,image/*" capture="environment" multiple onChange={handleFileSelect} />
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="font-heading text-3xl text-foreground">Knowledge Base</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="font-heading text-2xl md:text-3xl text-foreground">Knowledge Base</h1>
+        <p className="text-xs md:text-sm text-muted-foreground mt-1">
           Your private knowledge base. The AI searches here first before using general knowledge. The more you add, the more it reflects how you practice.
         </p>
         <div className="flex items-center gap-4 mt-3">
@@ -282,7 +282,7 @@ export default function KnowledgeBase() {
 
       {/* Tabs */}
       <Tabs defaultValue={categories[0].key}>
-        <TabsList className="bg-surface border border-border flex-wrap h-auto gap-1 p-1">
+        <TabsList className="bg-surface border border-border flex-wrap h-auto gap-1 p-1 overflow-x-auto">
           {categories.map(c => (
             <TabsTrigger key={c.key} value={c.key} className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-2 text-xs">
               <c.icon className="w-3.5 h-3.5" />{c.label}
@@ -303,7 +303,7 @@ export default function KnowledgeBase() {
               <div className="border-2 border-dashed border-border rounded-lg p-8 group-hover:border-primary/30 transition-colors">
                 <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2 group-hover:text-primary transition-colors" />
                 <p className="text-sm text-foreground font-medium">Upload to {cat.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">Drag and drop PDF or DOCX files, or click to browse</p>
+                <p className="text-xs text-muted-foreground mt-1">Tap to browse files or take a photo</p>
               </div>
             </div>
 

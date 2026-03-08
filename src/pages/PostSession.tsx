@@ -595,12 +595,12 @@ export default function PostSession() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
+    <div className="h-[calc(100vh-4rem)] flex flex-col md:flex-row">
       {/* ─── Main Content ────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-border bg-surface">
-          <div className="flex items-center justify-between">
+        <div className="p-3 md:p-4 border-b border-border bg-surface">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h1 className="font-heading text-xl text-foreground">{clientName} — Session Review</h1>
               <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -620,7 +620,8 @@ export default function PostSession() {
 
         {/* Tabs */}
         <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mx-4 mt-3 bg-surface border border-border w-fit">
+          <div className="overflow-x-auto mx-3 md:mx-4 mt-3">
+          <TabsList className="bg-surface border border-border w-fit">
             <TabsTrigger value="summary" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
               Summary {summaryDone && !summaryLoading && <Check className="w-3 h-3 text-accent" />}
               {summaryLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
@@ -640,6 +641,7 @@ export default function PostSession() {
               {forwardLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* ─── Summary Tab ────────────────────────── */}
           <TabsContent value="summary" className="flex-1 overflow-hidden mt-0">
@@ -844,7 +846,7 @@ export default function PostSession() {
       </div>
 
       {/* ─── Chat Panel ──────────────────────────────── */}
-      <div className="w-80 border-l border-border flex flex-col bg-surface">
+      <div className="hidden md:flex w-80 border-l border-border flex-col bg-surface">
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-primary" />
