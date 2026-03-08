@@ -23,6 +23,11 @@ import SettingsPage from "./pages/SettingsPage";
 import IntakeTemplates from "./pages/IntakeTemplates";
 import IntakeForm from "./pages/IntakeForm";
 import NotFound from "./pages/NotFound";
+import Pricing from "./pages/Pricing";
+import Billing from "./pages/Billing";
+import NGOApplication from "./pages/NGOApplication";
+import NGOIntake from "./pages/NGOIntake";
+import GrantReporting from "./pages/GrantReporting";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +67,8 @@ const App = () => (
             <Route path="/sign-in" element={<AuthRoute><SignIn /></AuthRoute>} />
             <Route path="/sign-up" element={<AuthRoute><SignUp /></AuthRoute>} />
             <Route path="/intake" element={<IntakeForm />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/ngo-apply" element={<NGOApplication />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/onboarding" element={<OnboardingRoute />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -77,6 +84,9 @@ const App = () => (
               <Route path="/knowledge-base" element={<KnowledgeBase />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/intake-templates" element={<IntakeTemplates />} />
+              <Route path="/billing" element={<Billing />} />
+              <Route path="/ngo-intake" element={<NGOIntake />} />
+              <Route path="/grant-reporting" element={<GrantReporting />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
