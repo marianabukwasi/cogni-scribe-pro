@@ -164,11 +164,13 @@ export default function LiveSession() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { isDemo } = useDemo();
+  const isMobile = useIsMobile();
   const deepgram = useDeepgramTranscription();
   const aiSuggestions = useAISuggestions();
 
   const alertStyle = profile?.alert_style || ["silent_flash"];
   const alertSystem = useAlertSystem({ alertStyles: alertStyle });
+  const [mobileTab, setMobileTab] = useState("transcript");
 
   const pk = getProfessionKey(profile?.profession);
   const sections = sectionTitles[pk];
