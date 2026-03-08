@@ -98,8 +98,17 @@ export default function Onboarding() {
                 <Input value={profile?.full_name || ""} readOnly className="bg-secondary border-border text-foreground" />
               </div>
               <div className="space-y-2">
+                <Label className="text-foreground">Profession</Label>
+                <Select value={profession} onValueChange={setProfession}>
+                  <SelectTrigger className="bg-secondary border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-surface border-border">
+                    {professions.map(p => <SelectItem key={p.value} value={p.value} className="text-foreground">{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label className="text-foreground">Specialty</Label>
-                <Input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder="e.g. Neurology, Family Law" className="bg-secondary border-border text-foreground placeholder:text-muted-foreground" />
+                <Input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder="e.g. Neurology, Family Law, Asylum Support" className="bg-secondary border-border text-foreground placeholder:text-muted-foreground" />
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">Organisation (optional)</Label>
