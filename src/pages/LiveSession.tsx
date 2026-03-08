@@ -445,9 +445,9 @@ export default function LiveSession() {
   const alertStyle = profile?.alert_style || ["silent_flash"];
 
   const groupedSuggestions = sectionOrder.reduce((acc, section) => {
-    acc[section] = demoSuggestions.filter(s => s.section === section);
+    acc[section] = activeSuggestions.filter(s => s.section === section);
     return acc;
-  }, {} as Record<typeof sectionOrder[number], Suggestion[]>);
+  }, {} as Record<typeof sectionOrder[number], (Suggestion | AISuggestion)[]>);
 
   return (
     <div className="h-screen flex flex-col bg-background">
