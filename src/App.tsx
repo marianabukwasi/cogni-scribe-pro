@@ -67,6 +67,8 @@ const App = () => (
             <Route path="/sign-in" element={<AuthRoute><SignIn /></AuthRoute>} />
             <Route path="/sign-up" element={<AuthRoute><SignUp /></AuthRoute>} />
             <Route path="/intake" element={<IntakeForm />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/ngo-apply" element={<NGOApplication />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/onboarding" element={<OnboardingRoute />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
