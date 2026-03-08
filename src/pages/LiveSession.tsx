@@ -602,6 +602,7 @@ export default function LiveSession() {
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">AI Suggestions</span>
+              {aiSuggestions.loading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
               <span className="status-badge bg-secondary text-muted-foreground text-[10px]">Click to select</span>
             </div>
             <div className="flex items-center gap-2">
@@ -611,9 +612,9 @@ export default function LiveSession() {
                 </span>
               )}
               {!sessionEnded && (
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <RefreshCw className="w-3 h-3" />{refreshCountdown}s
-                </span>
+                <button onClick={handleManualRefresh} className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors">
+                  <RefreshCw className={`w-3 h-3 ${aiSuggestions.loading ? "animate-spin" : ""}`} />{refreshCountdown}s
+                </button>
               )}
             </div>
           </div>
