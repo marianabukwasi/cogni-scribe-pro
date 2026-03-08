@@ -898,7 +898,7 @@ export default function LiveSession() {
             )}
 
             {/* Three option cards */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               {/* Option 1 — Summary Only */}
               <button
                 onClick={() => handleRetentionDecision("summary_only")}

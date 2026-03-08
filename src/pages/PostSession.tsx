@@ -846,7 +846,7 @@ export default function PostSession() {
       </div>
 
       {/* ─── Chat Panel ──────────────────────────────── */}
-      <div className="w-80 border-l border-border flex flex-col bg-surface">
+      <div className="hidden md:flex w-80 border-l border-border flex-col bg-surface">
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-primary" />
