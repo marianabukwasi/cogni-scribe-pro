@@ -482,16 +482,41 @@ export default function PostSession() {
   // ─── Document Generation ──────────────────────────────
   const toggleDoc = (key: string) => setSelectedDocs(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
+  // Document generation progress stages
+  const [generationStage, setGenerationStage] = useState("");
+  const [generationProgress, setGenerationProgress] = useState(0);
+
   const handleGenerate = async () => {
     setGenerating(true);
+    setGenerationProgress(0);
     
     if (!isDemo && session?.transcript) {
-      // Generate documents via AI in parallel
       const transcript = getTranscriptText();
       const selectedBasketItems = selectedForward.map(i => forwardItems[i]);
+      const total = selectedDocs.length;
+      let completed = 0;
+      
+      const stageLabels: Record<string, string> = {
+        clinical_note: "Generating clinical note...",
+        case_note: "Generating case note...",
+        prescription: "Formatting prescription...",
+        referral_letter: "Writing referral letter(s)...",
+        progress_note: "Generating progress note...",
+        case_summary: "Generating case summary...",
+        needs_assessment: "Generating needs assessment...",
+        draft_application: "Drafting application...",
+        attendance_note: "Generating attendance note...",
+        follow_up_letter: "Writing follow-up letter...",
+        risk_assessment: "Generating risk assessment...",
+        session_summary: "Generating session summary...",
+        action_items: "Summarising action items...",
+      };
+      
+      setGenerationStage("Analysing session...");
       
       const promises = selectedDocs.map(async (docKey) => {
         try {
+          setGenerationStage(stageLabels[docKey] || `Generating ${docKey}...`);
           const { data, error } = await supabase.functions.invoke("ai-documents", {
             body: {
               docType: docKey,
@@ -506,12 +531,14 @@ export default function PostSession() {
             },
           });
           
+          completed++;
+          setGenerationProgress(Math.round((completed / total) * 100));
+          
           if (error || data?.error) {
             console.error(`Doc generation error for ${docKey}:`, error || data?.error);
             return null;
           }
           
-          // Save generated document to database
           if (data?.document) {
             await supabase.from("documents").insert({
               professional_id: profile?.user_id || "",
@@ -526,15 +553,27 @@ export default function PostSession() {
           }
           return data?.document;
         } catch (e) {
+          completed++;
+          setGenerationProgress(Math.round((completed / total) * 100));
           console.error(`Doc generation failed for ${docKey}:`, e);
           return null;
         }
       });
       
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+      const failedCount = results.filter(r => r === null).length;
+      if (failedCount > 0 && failedCount < selectedDocs.length) {
+        toast.warning(`${selectedDocs.length - failedCount} documents generated. ${failedCount} failed — try again.`);
+      } else if (failedCount === selectedDocs.length) {
+        toast.error("Document generation failed. Your selections are saved. Try again or contact support.");
+        setGenerating(false);
+        setGenerationStage("");
+        return;
+      }
     }
     
     setGenerating(false);
+    setGenerationStage("");
     setShowGenerateDialog(false);
     toast.success(`${selectedDocs.length} documents generated`);
     navigate(`/session/${id}/documents`);
@@ -942,12 +981,25 @@ export default function PostSession() {
             </Select>
           </div>
 
-          <div className="flex gap-3 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowGenerateDialog(false)} className="border-border text-foreground">Cancel</Button>
-            <Button onClick={handleGenerate} disabled={selectedDocs.length === 0 || generating} className="gap-2">
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generating ? "Generating..." : `Generate ${selectedDocs.length} Document${selectedDocs.length !== 1 ? "s" : ""}`}
-            </Button>
+          <div className="flex flex-col gap-3 mt-4">
+            {generating && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{generationStage}</span>
+                  <span className="text-primary font-mono">{generationProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${generationProgress}%` }} />
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowGenerateDialog(false)} disabled={generating} className="border-border text-foreground">Cancel</Button>
+              <Button onClick={handleGenerate} disabled={selectedDocs.length === 0 || generating} className="gap-2">
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {generating ? generationStage || "Generating..." : `Generate ${selectedDocs.length} Document${selectedDocs.length !== 1 ? "s" : ""}`}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

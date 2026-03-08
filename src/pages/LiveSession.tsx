@@ -6,6 +6,7 @@ import { useDemo } from "@/contexts/DemoContext";
 import { useDeepgramTranscription, TranscriptLine } from "@/hooks/useDeepgramTranscription";
 import { useAISuggestions, AISuggestion } from "@/hooks/useAISuggestions";
 import { useAlertSystem, SessionAlert } from "@/hooks/useAlertSystem";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -343,6 +344,22 @@ export default function LiveSession() {
       setRefreshCountdown(30);
     }
   }, [isDemo, liveStarted, pk, getTranscriptText]);
+
+  // Auto-save transcript every 60 seconds
+  useEffect(() => {
+    if (!id || sessionEnded || isDemo) return;
+    const iv = setInterval(() => {
+      const lines = deepgram.lines.filter(l => !l.isInterim);
+      if (lines.length > 0) {
+        supabase.from("sessions").update({
+          transcript: lines as any,
+          manual_notes: notes,
+          duration_seconds: timer,
+        }).eq("id", id);
+      }
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [id, sessionEnded, isDemo, timer, notes, deepgram.lines]);
 
   useEffect(() => {
     if (!id || !notes) return;
@@ -699,6 +716,37 @@ export default function LiveSession() {
 
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-5">
+              {/* Skeleton loading state */}
+              {aiSuggestions.loading && activeSuggestions.length === 0 && (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="glass-card p-3.5 space-y-2.5">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Error state */}
+              {aiSuggestions.error && !aiSuggestions.loading && activeSuggestions.length === 0 && (
+                <div className="glass-card p-5 border-destructive/30 text-center">
+                  <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2 opacity-60" />
+                  <p className="text-sm text-foreground font-medium mb-1">AI suggestions unavailable</p>
+                  <p className="text-xs text-muted-foreground mb-3">Your transcript is still being saved. Try refreshing.</p>
+                  <Button size="sm" variant="outline" onClick={handleManualRefresh} className="gap-1.5 border-border text-foreground">
+                    <RefreshCw className="w-3 h-3" />Retry
+                  </Button>
+                </div>
+              )}
+              {/* Empty state */}
+              {!aiSuggestions.loading && !aiSuggestions.error && activeSuggestions.length === 0 && (
+                <div className="text-center py-12">
+                  <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-20" />
+                  <p className="text-sm text-muted-foreground">Suggestions will appear as the conversation progresses.</p>
+                </div>
+              )}
               {sectionOrder.map(sectionKey => {
                 const items = groupedSuggestions[sectionKey];
                 if (!items || items.length === 0) return null;
