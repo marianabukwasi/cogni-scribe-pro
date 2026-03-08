@@ -596,7 +596,7 @@ export default function LiveSession() {
           {!isDemo && liveStarted && !sessionEnded && (
             <div className="px-4 py-1.5 bg-primary/5 border-b border-border flex items-center gap-2">
               <Shield className="w-3 h-3 text-primary shrink-0" />
-              <span className="text-[10px] text-muted-foreground">Audio is transcribed in real time and not stored.</span>
+              <span className="text-[10px] text-muted-foreground">Audio is streamed for transcription only. No audio recordings are saved anywhere. Only the text transcript is stored, and only if you choose to keep it at the end of the session.</span>
             </div>
           )}
 
