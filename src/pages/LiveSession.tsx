@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useDeepgramTranscription, TranscriptLine } from "@/hooks/useDeepgramTranscription";
 import { useAISuggestions, AISuggestion } from "@/hooks/useAISuggestions";
+import { useAlertSystem, SessionAlert } from "@/hooks/useAlertSystem";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus, RefreshCw, FileText, Archive, Timer, WifiOff, Loader2
+  Plus, RefreshCw, FileText, Archive, Timer, WifiOff, Loader2, Wifi, Download
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -33,14 +34,6 @@ interface Suggestion {
   detail: string;
   confidence?: string;
   section: string;
-}
-
-interface Alert {
-  id: string;
-  severity: "critical" | "important" | "info";
-  message: string;
-  timestamp: string;
-  read: boolean;
 }
 
 interface BasketItem {
@@ -66,8 +59,8 @@ const demoTranscript: Utterance[] = [
   { speaker: "Professional", lang: "EN", time: "00:02:08", text: "I'd like to check your eye pressure and do a fundoscopy today. I'm also going to refer you to ophthalmology." },
 ];
 
-const demoAlerts: Alert[] = [
-  { id: "1", severity: "critical", message: "Drug interaction: St. John's Wort detected — may interact with SSRIs and oral contraceptives. Verify patient's full medication list.", timestamp: "00:01:55", read: false },
+const demoAlerts = [
+  { severity: "critical" as const, message: "Drug interaction: St. John's Wort detected — may interact with SSRIs and oral contraceptives. Verify patient's full medication list.", timestamp: "00:01:55" },
 ];
 
 // ─── Profession-Adaptive Config ─────────────────────────
@@ -171,6 +164,9 @@ export default function LiveSession() {
   const deepgram = useDeepgramTranscription();
   const aiSuggestions = useAISuggestions();
 
+  const alertStyle = profile?.alert_style || ["silent_flash"];
+  const alertSystem = useAlertSystem({ alertStyles: alertStyle });
+
   const pk = getProfessionKey(profile?.profession);
   const sections = sectionTitles[pk];
   const demoSuggestions = getDemoSuggestions(pk);
@@ -187,7 +183,6 @@ export default function LiveSession() {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showScrubDialog, setShowScrubDialog] = useState(false);
   const [scrubText, setScrubText] = useState("");
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [scrubLog, setScrubLog] = useState<string[]>([]);
   const [customBasketItem, setCustomBasketItem] = useState("");
@@ -264,9 +259,12 @@ export default function LiveSession() {
     else deepgram.resume();
   }, [paused, isDemo, liveStarted]);
 
+  // Demo mode: trigger demo alerts
   useEffect(() => {
-    if (visibleLines >= 10 && alerts.length === 0) setAlerts([...demoAlerts]);
-  }, [visibleLines, alerts.length]);
+    if (visibleLines >= 10 && alertSystem.alerts.length === 0 && isDemo) {
+      demoAlerts.forEach(a => alertSystem.triggerAlert(a));
+    }
+  }, [visibleLines, alertSystem.alerts.length, isDemo]);
 
   // Track new transcript utterances for AI suggestions
   const prevLineCount = useRef(0);
@@ -378,7 +376,7 @@ export default function LiveSession() {
     setScrubText("");
   };
 
-  const unreadAlerts = alerts.filter(a => !a.read).length;
+  const unreadAlerts = alertSystem.unreadCount;
 
   const handleEndSession = async () => {
     if (!id) return;
@@ -424,12 +422,23 @@ export default function LiveSession() {
       decision_timestamp: new Date().toISOString(),
     }).eq("id", id);
 
-    // Simulate audio deletion for non-keep-everything
-    if (decision !== "keep_everything") {
-      await new Promise(r => setTimeout(r, 800));
-    }
+    // Clear all audio buffers from device memory (volatile audio guarantee)
+    deepgram.clearAudioBuffers();
 
-    toast.success(`Session saved. ${retainedItems.length} items retained.`, { duration: 3000 });
+    toast.success(`Session saved. ${retainedItems.length} items retained. Audio permanently cleared from this device.`, { duration: 3000 });
+
+    // Save alert log to session
+    if (alertSystem.alerts.length > 0) {
+      await supabase.from("sessions").update({
+        points_to_note: alertSystem.alerts.map(a => ({
+          severity: a.severity,
+          message: a.message,
+          timestamp: a.timestamp,
+          triggeredAt: a.triggeredAt,
+          read: a.read,
+        })) as any,
+      }).eq("id", id);
+    }
 
     setTimeout(() => {
       navigate(`/session/${id}/post`);
@@ -442,7 +451,7 @@ export default function LiveSession() {
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
-  const alertStyle = profile?.alert_style || ["silent_flash"];
+  // alertStyle already declared at line 175
 
   const groupedSuggestions = sectionOrder.reduce((acc, section) => {
     acc[section] = activeSuggestions.filter(s => s.section === section);
@@ -456,19 +465,64 @@ export default function LiveSession() {
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-foreground">{session?.client_name || "Session"}</span>
           {session?.session_type && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">{session.session_type}</span>}
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            {alertStyle.includes("silent_flash") ? <BellOff className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
-            {alertStyle.includes("silent_flash") ? "Silent" : "Vibrate"}
-          </span>
+          
+          {/* Connection status indicator */}
+          {!isDemo && liveStarted && !sessionEnded && (
+            <span className={`flex items-center gap-1 text-[10px] ${deepgram.isOnline ? "text-accent" : "text-destructive"}`}>
+              {deepgram.isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {deepgram.isOnline ? "Connected" : "Offline"}
+            </span>
+          )}
+
+          {/* Offline buffer indicator */}
+          {!isDemo && !deepgram.isOnline && deepgram.bufferedSeconds > 0 && (
+            <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1">
+              <Download className="w-3 h-3" />{deepgram.bufferedSeconds}s buffered
+            </span>
+          )}
+
+          {/* Processing buffer indicator */}
+          {deepgram.isProcessingBuffer && (
+            <span className="status-badge bg-primary/20 text-primary text-[10px] gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" />Processing buffered audio
+            </span>
+          )}
+
+          {/* Buffer warning */}
+          {deepgram.bufferWarning && (
+            <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1">
+              <AlertTriangle className="w-3 h-3" />{deepgram.bufferWarning}
+            </span>
+          )}
+
+          {/* Audio cleared confirmation */}
+          {deepgram.audioClearedConfirm && (
+            <span className="status-badge bg-accent/20 text-accent text-[10px] gap-1">
+              <Check className="w-3 h-3" />Audio permanently cleared from this device
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          {unreadAlerts > 0 && (
+          {/* Corner flash alert indicator — always active */}
+          {alertSystem.unreadCount > 0 && (
             <button onClick={() => setShowAlerts(!showAlerts)} className="relative flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-warning pulse-recording" />
-              <span className="text-xs text-warning font-medium">{unreadAlerts}</span>
+              <span className={`w-3 h-3 rounded-full ${
+                alertSystem.criticalUnread > 0 ? "bg-destructive" : "bg-warning"
+              } ${alertSystem.flashCount < 6 ? "animate-pulse" : ""}`} />
+              <span className={`text-xs font-medium ${alertSystem.criticalUnread > 0 ? "text-destructive" : "text-warning"}`}>
+                {alertSystem.unreadCount} warning{alertSystem.unreadCount !== 1 ? "s" : ""}
+              </span>
             </button>
           )}
-          {!paused && !sessionEnded && (
+
+          {/* Offline transcription paused */}
+          {!isDemo && liveStarted && !deepgram.isOnline && !sessionEnded && (
+            <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1">
+              <WifiOff className="w-3 h-3" />Offline — Transcription paused
+            </span>
+          )}
+
+          {!paused && !sessionEnded && deepgram.isOnline && (
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive pulse-recording" />
               <span className="text-xs font-semibold text-destructive tracking-wide">LIVE</span>
@@ -498,10 +552,17 @@ export default function LiveSession() {
         <div className="absolute top-14 right-48 z-50 w-80 glass-card border border-warning/30 shadow-lg">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Alerts</span>
-            <button onClick={() => setShowAlerts(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            <div className="flex items-center gap-2">
+              {alertSystem.unreadCount > 1 && (
+                <Button size="sm" variant="ghost" className="text-[10px] text-primary h-5 px-1.5" onClick={alertSystem.markAllRead}>
+                  Mark all read
+                </Button>
+              )}
+              <button onClick={() => setShowAlerts(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            </div>
           </div>
           <div className="p-3 space-y-2">
-            {alerts.map(a => (
+            {alertSystem.alerts.map(a => (
               <div key={a.id} className={`p-3 rounded-lg border ${a.severity === "critical" ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle className={`w-3.5 h-3.5 ${a.severity === "critical" ? "text-destructive" : "text-warning"}`} />
@@ -510,11 +571,10 @@ export default function LiveSession() {
                 <p className="text-xs text-foreground">{a.message}</p>
                 {!a.read && (
                   <Button size="sm" variant="ghost" className="text-xs text-primary mt-1.5 h-6 px-2"
-                    onClick={() => setAlerts(prev => prev.map(al => al.id === a.id ? { ...al, read: true } : al))}>
+                    onClick={() => alertSystem.markRead(a.id)}>
                     Mark as reviewed
                   </Button>
                 )}
-                {alertStyle.includes("phone_vibration") && <p className="text-[10px] text-muted-foreground mt-1 italic">📳 Phone would vibrate now</p>}
               </div>
             ))}
           </div>
@@ -539,7 +599,7 @@ export default function LiveSession() {
           {!isDemo && liveStarted && !sessionEnded && (
             <div className="px-4 py-1.5 bg-primary/5 border-b border-border flex items-center gap-2">
               <Shield className="w-3 h-3 text-primary shrink-0" />
-              <span className="text-[10px] text-muted-foreground">Audio is transcribed in real time and not stored.</span>
+              <span className="text-[10px] text-muted-foreground">Audio is streamed for transcription only. No audio recordings are saved anywhere. Only the text transcript is stored, and only if you choose to keep it at the end of the session.</span>
             </div>
           )}
 

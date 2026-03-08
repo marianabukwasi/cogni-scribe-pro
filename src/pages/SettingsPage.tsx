@@ -266,14 +266,20 @@ export default function SettingsPage() {
           <div className="glass-card p-6 space-y-6">
             <div className="space-y-3">
               <Label className="text-foreground">Alert Style</Label>
-              {[{ v: "silent_flash", l: "Silent corner flash", desc: "Subtle visual indicator — always available" },
-                { v: "phone_vibration", l: "Phone vibration", desc: "Vibrate connected device" },
+              {[{ v: "silent_flash", l: "Silent corner flash", desc: "Subtle visual indicator — always available. Cannot be disabled." },
+                { v: "phone_vibration", l: "Phone vibration", desc: "Vibrate connected device when critical warnings detected" },
                 { v: "smartwatch_haptic", l: "Smartwatch haptic", desc: "Haptic feedback on connected smartwatch" }].map(a => (
                 <div key={a.v} className="flex items-start gap-3">
-                  <Checkbox checked={alertStyles.includes(a.v)} onCheckedChange={() => toggleAlert(a.v)} className="mt-0.5" />
+                  <Checkbox checked={a.v === "silent_flash" ? true : alertStyles.includes(a.v)} onCheckedChange={() => toggleAlert(a.v)} disabled={a.v === "silent_flash"} className="mt-0.5" />
                   <div>
                     <span className="text-sm text-foreground">{a.l}</span>
                     <p className="text-[10px] text-muted-foreground">{a.desc}</p>
+                    {a.v === "phone_vibration" && !("vibrate" in navigator) && (
+                      <p className="text-[10px] text-warning mt-1">⚠ Phone vibration not supported on this device. Corner flash is active.</p>
+                    )}
+                    {a.v === "smartwatch_haptic" && (
+                      <p className="text-[10px] text-muted-foreground mt-1 italic">⌚ Smartwatch alerts coming soon — corner flash and phone vibration are active. To enable smartwatch alerts in future, install the Kloer.ai companion app on your Apple Watch or Wear OS watch.</p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -291,9 +297,13 @@ export default function SettingsPage() {
               </Select>
             </div>
             <Button variant="outline" className="border-border text-foreground gap-2" onClick={() => {
-              toast.info("Test alert — this is how alerts will appear during sessions", { duration: 5000 });
+              // Trigger real vibration test if supported
+              if (alertStyles.includes("phone_vibration") && "vibrate" in navigator) {
+                navigator.vibrate([200, 100, 200, 100, 200]);
+              }
+              toast.warning("⚠ Test Alert — Drug interaction: St. John's Wort detected. This is how critical alerts appear during sessions.", { duration: 5000 });
             }}>
-              <Bell className="w-4 h-4" />Test Alert
+              <Bell className="w-4 h-4" />Test Alerts
             </Button>
             <div><Button onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Save Changes</Button></div>
           </div>
