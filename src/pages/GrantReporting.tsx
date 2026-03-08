@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Users, FileText, Globe, ArrowUpRight, Heart, BarChart3 } from "lucide-react";
+import { generateGrantReportPDF } from "@/lib/pdfExport";
 
 const demoStats = {
   totalBeneficiaries: { month: 47, quarter: 142, year: 518 },
