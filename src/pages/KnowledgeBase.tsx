@@ -232,8 +232,8 @@ export default function KnowledgeBase() {
   const readyItems = items.filter(i => i.status === "ready").length;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt" multiple onChange={handleFileSelect} />
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt,image/*" capture="environment" multiple onChange={handleFileSelect} />
 
       {/* Header */}
       <div className="mb-6">
