@@ -462,19 +462,64 @@ export default function LiveSession() {
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-foreground">{session?.client_name || "Session"}</span>
           {session?.session_type && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">{session.session_type}</span>}
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            {alertStyle.includes("silent_flash") ? <BellOff className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
-            {alertStyle.includes("silent_flash") ? "Silent" : "Vibrate"}
-          </span>
+          
+          {/* Connection status indicator */}
+          {!isDemo && liveStarted && !sessionEnded && (
+            <span className={`flex items-center gap-1 text-[10px] ${deepgram.isOnline ? "text-accent" : "text-destructive"}`}>
+              {deepgram.isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {deepgram.isOnline ? "Connected" : "Offline"}
+            </span>
+          )}
+
+          {/* Offline buffer indicator */}
+          {!isDemo && !deepgram.isOnline && deepgram.bufferedSeconds > 0 && (
+            <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1">
+              <Download className="w-3 h-3" />{deepgram.bufferedSeconds}s buffered
+            </span>
+          )}
+
+          {/* Processing buffer indicator */}
+          {deepgram.isProcessingBuffer && (
+            <span className="status-badge bg-primary/20 text-primary text-[10px] gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" />Processing buffered audio
+            </span>
+          )}
+
+          {/* Buffer warning */}
+          {deepgram.bufferWarning && (
+            <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1">
+              <AlertTriangle className="w-3 h-3" />{deepgram.bufferWarning}
+            </span>
+          )}
+
+          {/* Audio cleared confirmation */}
+          {deepgram.audioClearedConfirm && (
+            <span className="status-badge bg-accent/20 text-accent text-[10px] gap-1">
+              <Check className="w-3 h-3" />Audio permanently cleared from this device
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          {unreadAlerts > 0 && (
+          {/* Corner flash alert indicator — always active */}
+          {alertSystem.unreadCount > 0 && (
             <button onClick={() => setShowAlerts(!showAlerts)} className="relative flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-warning pulse-recording" />
-              <span className="text-xs text-warning font-medium">{unreadAlerts}</span>
+              <span className={`w-3 h-3 rounded-full ${
+                alertSystem.criticalUnread > 0 ? "bg-destructive" : "bg-warning"
+              } ${alertSystem.flashCount < 6 ? "animate-pulse" : ""}`} />
+              <span className={`text-xs font-medium ${alertSystem.criticalUnread > 0 ? "text-destructive" : "text-warning"}`}>
+                {alertSystem.unreadCount} warning{alertSystem.unreadCount !== 1 ? "s" : ""}
+              </span>
             </button>
           )}
-          {!paused && !sessionEnded && (
+
+          {/* Offline transcription paused */}
+          {!isDemo && liveStarted && !deepgram.isOnline && !sessionEnded && (
+            <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1">
+              <WifiOff className="w-3 h-3" />Offline — Transcription paused
+            </span>
+          )}
+
+          {!paused && !sessionEnded && deepgram.isOnline && (
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive pulse-recording" />
               <span className="text-xs font-semibold text-destructive tracking-wide">LIVE</span>
