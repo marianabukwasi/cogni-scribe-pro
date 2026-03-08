@@ -858,6 +858,11 @@ export default function LiveSession() {
         </div>
       </div>
 
+      {/* Mobile bottom tabs */}
+      {isMobile && !sessionEnded && !showDecisionGate && (
+        <MobileSessionTabs activeTab={mobileTab} onTabChange={setMobileTab} />
+      )}
+
       {/* ─── End Session Confirmation ────────────── */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <DialogContent className="bg-surface border-border">
