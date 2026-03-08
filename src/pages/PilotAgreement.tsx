@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format, addWeeks } from "date-fns";
 import { ArrowLeft, Download, FileText, Mail, Send, Eye, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
+import { generatePilotAgreementPDF } from "@/lib/pdfExport";
 
 const durationOptions = [
   { v: "4", l: "4 weeks" },
