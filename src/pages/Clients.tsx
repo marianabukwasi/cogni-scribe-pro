@@ -192,7 +192,7 @@ export default function Clients() {
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h1 className="font-heading text-3xl text-foreground">Clients</h1>
+        <h1 className="font-heading text-2xl md:text-3xl text-foreground">Clients</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="w-4 h-4" />Add New {clientLabel}</Button>
