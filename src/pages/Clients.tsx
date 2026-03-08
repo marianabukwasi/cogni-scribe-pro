@@ -368,10 +368,17 @@ export default function Clients() {
         </Select>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && !search ? (
+        <div className="glass-card p-12 text-center">
+          <Users className="w-14 h-14 text-muted-foreground mx-auto mb-4 opacity-30" />
+          <p className="text-foreground font-medium mb-1">No {clientLabel.toLowerCase()}s yet</p>
+          <p className="text-sm text-muted-foreground mb-4">Add your first {clientLabel.toLowerCase()} to get started.</p>
+          <Button onClick={() => setOpen(true)} className="gap-2"><Plus className="w-4 h-4" />Add First {clientLabel}</Button>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="glass-card p-10 text-center">
-          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-          <p className="text-muted-foreground">No clients found</p>
+          <Search className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-muted-foreground">No results for "{search}"</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

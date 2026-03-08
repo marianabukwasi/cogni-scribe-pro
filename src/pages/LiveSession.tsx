@@ -344,6 +344,22 @@ export default function LiveSession() {
     }
   }, [isDemo, liveStarted, pk, getTranscriptText]);
 
+  // Auto-save transcript every 60 seconds
+  useEffect(() => {
+    if (!id || sessionEnded || isDemo) return;
+    const iv = setInterval(() => {
+      const lines = deepgram.lines.filter(l => !l.isInterim);
+      if (lines.length > 0) {
+        supabase.from("sessions").update({
+          transcript: lines as any,
+          manual_notes: notes,
+          duration_seconds: timer,
+        }).eq("id", id);
+      }
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [id, sessionEnded, isDemo, timer, notes, deepgram.lines]);
+
   useEffect(() => {
     if (!id || !notes) return;
     const t = setTimeout(() => { supabase.from("sessions").update({ manual_notes: notes }).eq("id", id); }, 10000);

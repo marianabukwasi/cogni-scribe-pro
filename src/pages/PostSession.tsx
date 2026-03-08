@@ -981,12 +981,25 @@ export default function PostSession() {
             </Select>
           </div>
 
-          <div className="flex gap-3 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowGenerateDialog(false)} className="border-border text-foreground">Cancel</Button>
-            <Button onClick={handleGenerate} disabled={selectedDocs.length === 0 || generating} className="gap-2">
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generating ? "Generating..." : `Generate ${selectedDocs.length} Document${selectedDocs.length !== 1 ? "s" : ""}`}
-            </Button>
+          <div className="flex flex-col gap-3 mt-4">
+            {generating && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{generationStage}</span>
+                  <span className="text-primary font-mono">{generationProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${generationProgress}%` }} />
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowGenerateDialog(false)} disabled={generating} className="border-border text-foreground">Cancel</Button>
+              <Button onClick={handleGenerate} disabled={selectedDocs.length === 0 || generating} className="gap-2">
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {generating ? generationStage || "Generating..." : `Generate ${selectedDocs.length} Document${selectedDocs.length !== 1 ? "s" : ""}`}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
