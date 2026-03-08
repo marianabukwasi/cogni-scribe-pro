@@ -16,6 +16,7 @@ import {
   Check, Download, FileText, Printer, Edit, Clock, Plus, Lock,
   ChevronDown, ChevronRight, Globe, ArrowLeft, Shield, AlertTriangle
 } from "lucide-react";
+import { generateDocumentPDF, generateAuditTrailPDF, generatePrescriptionPDF, generateReferralPDF } from "@/lib/pdfExport";
 
 // ─── Types ──────────────────────────────────────────────
 type ProfKey = "medical" | "legal" | "ngo" | "therapy" | "generic";
