@@ -709,7 +709,7 @@ export default function PostSession() {
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
-            {chatMessages.length === 0 && (
+            {aiChat.messages.length === 0 && (
               <>
                 <div className="glass-card p-3 text-xs text-muted-foreground leading-relaxed">
                   I have full context from this session, <span className="text-foreground font-medium">{clientName}</span>'s history, and your knowledge base. Ask me anything — drug interactions, treatment protocols, case strategies, or ask me to draft a referral letter or prescription.
@@ -723,7 +723,7 @@ export default function PostSession() {
                 </div>
               </>
             )}
-            {chatMessages.map((m, i) => (
+            {aiChat.messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "ml-6" : "mr-1"}>
                 {m.thinking ? (
                   <div className="glass-card p-3">
