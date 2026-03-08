@@ -258,6 +258,14 @@ export default function PostSession() {
   const suggestions = chatSuggestions[pk];
   const profDocTypes = docTypes[pk];
 
+  // Helper to get transcript text from session
+  const getTranscriptText = useCallback(() => {
+    if (!session?.transcript) return "";
+    const transcript = session.transcript as any[];
+    return transcript.map((l: any) => `[${l.time}] ${l.speaker} (${l.lang}): ${l.text}`).join("\n");
+  }, [session]);
+
+  // Fetch session data
   useEffect(() => {
     if (!id) return;
     supabase.from("sessions").select("*").eq("id", id).single().then(({ data }) => {
@@ -267,22 +275,120 @@ export default function PostSession() {
     });
   }, [id]);
 
+  // Generate AI content or load demo data when session loads
   useEffect(() => {
-    setSummaryFields(demoSummaries[pk]);
-    const items = getDemoForwardItems(pk);
-    setForwardItems(items);
-    setSelectedForward(items.map((_, i) => i));
-    // Pre-select all doc types
+    if (!session) return;
+    
+    // Pre-select doc types and formats
     setSelectedDocs(docTypes[pk].map(d => d.key));
-    // Set default formats
     const formats: Record<string, string> = {};
     docTypes[pk].forEach(d => { if (d.defaultFormat) formats[d.key] = d.defaultFormat; });
     setDocFormats(formats);
-  }, [pk]);
+
+    if (isDemo) {
+      // Demo mode: use static data
+      setSummaryFields(demoSummaries[pk]);
+      setFlags(getDemoFlags(pk));
+      const items = getDemoForwardItems(pk);
+      setForwardItems(items);
+      setSelectedForward(items.map((_, i) => i));
+      setSummaryDone(true);
+      setFlagsDone(true);
+      setForwardDone(true);
+      return;
+    }
+
+    // Real AI generation — 3 parallel calls
+    const transcript = getTranscriptText();
+    if (!transcript) {
+      // No transcript, fall back to demo
+      setSummaryFields(demoSummaries[pk]);
+      setFlags(getDemoFlags(pk));
+      const items = getDemoForwardItems(pk);
+      setForwardItems(items);
+      setSelectedForward(items.map((_, i) => i));
+      setSummaryDone(true);
+      setFlagsDone(true);
+      setForwardDone(true);
+      return;
+    }
+
+    const selectedItems = session.selected_items;
+    const contextBody = {
+      professionKey: pk,
+      profession: profile?.profession || "professional",
+      specialty: profile?.specialty || undefined,
+      country: profile?.country_of_practice || undefined,
+      transcript,
+      selectedItems,
+    };
+
+    // Summary
+    setSummaryLoading(true);
+    supabase.functions.invoke("ai-post-session", {
+      body: { ...contextBody, type: "summary", summaryFields: Object.keys(demoSummaries[pk]) },
+    }).then(({ data, error }) => {
+      setSummaryLoading(false);
+      setSummaryDone(true);
+      if (error || data?.error) {
+        console.error("Summary error:", error || data?.error);
+        setSummaryFields(demoSummaries[pk]);
+        toast.error("AI summary generation failed, showing demo data");
+      } else if (data?.result) {
+        setSummaryFields(data.result);
+      } else {
+        setSummaryFields(demoSummaries[pk]);
+      }
+    });
+
+    // Flags
+    setFlagsLoading(true);
+    supabase.functions.invoke("ai-post-session", {
+      body: { ...contextBody, type: "flags" },
+    }).then(({ data, error }) => {
+      setFlagsLoading(false);
+      setFlagsDone(true);
+      if (error || data?.error) {
+        console.error("Flags error:", error || data?.error);
+        setFlags(getDemoFlags(pk));
+      } else if (Array.isArray(data?.result)) {
+        setFlags(data.result);
+      } else {
+        setFlags(getDemoFlags(pk));
+      }
+    });
+
+    // Forward
+    setForwardLoading(true);
+    supabase.functions.invoke("ai-post-session", {
+      body: { ...contextBody, type: "forward" },
+    }).then(({ data, error }) => {
+      setForwardLoading(false);
+      setForwardDone(true);
+      if (error || data?.error) {
+        console.error("Forward error:", error || data?.error);
+        const items = getDemoForwardItems(pk);
+        setForwardItems(items);
+        setSelectedForward(items.map((_, i) => i));
+      } else if (Array.isArray(data?.result)) {
+        const items: ForwardItem[] = data.result.map((r: any) => ({
+          category: r.category || "Action",
+          title: r.title || "",
+          color: r.color || "bg-secondary text-muted-foreground",
+        }));
+        setForwardItems(items);
+        setSelectedForward(items.map((_: any, i: number) => i));
+      } else {
+        const items = getDemoForwardItems(pk);
+        setForwardItems(items);
+        setSelectedForward(items.map((_, i) => i));
+      }
+    });
+  }, [session, pk, isDemo]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+  }, [aiChat.messages]);
 
   // ─── Summary Editing ──────────────────────────────────
   const startEdit = (field: string) => { setEditingField(field); setEditValue(summaryFields[field] || ""); };
@@ -295,9 +401,25 @@ export default function PostSession() {
   };
   const cancelEdit = () => { setEditingField(null); setEditValue(""); };
 
-  const handleRegenerate = () => {
+  const handleRegenerate = async () => {
     setRegenerating(true);
-    setTimeout(() => { setRegenerating(false); toast.success("Summary regenerated"); }, 2000);
+    if (!isDemo && session?.transcript) {
+      const { data, error } = await supabase.functions.invoke("ai-post-session", {
+        body: {
+          type: "summary",
+          professionKey: pk,
+          profession: profile?.profession,
+          specialty: profile?.specialty,
+          country: profile?.country_of_practice,
+          transcript: getTranscriptText(),
+          summaryFields: Object.keys(summaryFields),
+        },
+      });
+      if (!error && data?.result) setSummaryFields(data.result);
+      else toast.error("Regeneration failed");
+    }
+    setRegenerating(false);
+    toast.success("Summary regenerated");
   };
 
   // ─── Forward Items ────────────────────────────────────
@@ -320,19 +442,26 @@ export default function PostSession() {
 
   // ─── Chat ─────────────────────────────────────────────
   const handleChat = (msg: string) => {
-    setChatMessages(prev => [...prev, { role: "user", content: msg }]);
     setChatInput("");
-    // Show thinking indicator
-    setChatMessages(prev => [...prev, { role: "assistant", content: "", thinking: true }]);
-    setTimeout(() => {
-      setChatMessages(prev => {
-        const withoutThinking = prev.filter(m => !m.thinking);
-        return [...withoutThinking, {
+    if (isDemo) {
+      // Demo mode: use static responses
+      aiChat.setMessages(prev => [...prev, { role: "user", content: msg }]);
+      setTimeout(() => {
+        aiChat.setMessages(prev => [...prev, {
           role: "assistant",
-          content: chatResponses[msg] || "I've analyzed the session context. Based on the transcript, clinical findings, and your knowledge base, here are my recommendations for this case. Would you like me to elaborate on any specific area or draft a document?"
-        }];
-      });
-    }, 1500);
+          content: chatResponses[msg] || "I've analyzed the session context. Based on the transcript, clinical findings, and your knowledge base, here are my recommendations for this case."
+        }]);
+      }, 1500);
+      return;
+    }
+    // Real AI chat with streaming
+    aiChat.sendMessage(msg, {
+      profession: profile?.profession,
+      specialty: profile?.specialty,
+      country: profile?.country_of_practice,
+      transcript: getTranscriptText(),
+      selectedItems: session?.selected_items,
+    });
   };
 
   const addChatToNotes = (content: string) => {
