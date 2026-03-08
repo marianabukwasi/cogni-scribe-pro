@@ -589,6 +589,17 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ─── Partnerships Tab ──────────────────────── */}
+      <TabsContent value="partnerships">
+        <div className="glass-card p-6 space-y-4">
+          <h2 className="font-heading text-xl text-foreground">Partnerships</h2>
+          <p className="text-sm text-muted-foreground">Generate pilot agreements to share Kloer.ai with partner organisations for testing.</p>
+          <Link to="/settings/pilot-agreement">
+            <Button className="gap-2"><Handshake className="w-4 h-4" />Create Pilot Agreement</Button>
+          </Link>
+        </div>
+      </TabsContent>
     </div>
   );
 }
