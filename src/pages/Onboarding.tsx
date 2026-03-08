@@ -55,7 +55,7 @@ export default function Onboarding() {
 
   const handleComplete = async () => {
     const { error } = await supabase.from("profiles").update({
-      specialty, organisation, country_of_practice: country,
+      profession: profession as any, specialty, organisation, country_of_practice: country,
       primary_session_language: sessionLang, document_output_language: docLang,
       prescription_country_format: rxFormat, ui_language: uiLang,
       alert_style: alertStyles, default_retention: retention as any,
