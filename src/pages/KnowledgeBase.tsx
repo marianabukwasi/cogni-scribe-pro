@@ -303,7 +303,7 @@ export default function KnowledgeBase() {
               <div className="border-2 border-dashed border-border rounded-lg p-8 group-hover:border-primary/30 transition-colors">
                 <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2 group-hover:text-primary transition-colors" />
                 <p className="text-sm text-foreground font-medium">Upload to {cat.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">Drag and drop PDF or DOCX files, or click to browse</p>
+                <p className="text-xs text-muted-foreground mt-1">Tap to browse files or take a photo</p>
               </div>
             </div>
 
