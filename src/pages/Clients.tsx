@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useDemo } from "@/contexts/DemoContext";
 import { Plus, Search, Users, Calendar, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 

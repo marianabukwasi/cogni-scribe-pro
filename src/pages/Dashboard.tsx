@@ -1,18 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Mic, Users, Clock, Calendar, Plus } from "lucide-react";
 
+const demoRecentSessions = [
+  { id: "demo-1", client_name: "Jean Müller", session_type: "Follow-up", status: "ended", created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: "demo-2", client_name: "Anonymous", session_type: "Intake Interview", status: "ended", created_at: new Date(Date.now() - 3 * 86400000).toISOString() },
+  { id: "demo-3", client_name: "Maria Kovács", session_type: "Initial Consultation", status: "ended", created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
+];
+
 export default function Dashboard() {
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ totalSessions: 0, totalClients: 0, weekSessions: 0 });
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
 
   useEffect(() => {
     if (!profile) return;
+
+    if (isDemo) {
+      setStats({ totalSessions: 12, totalClients: 5, weekSessions: 3 });
+      setRecentSessions(demoRecentSessions);
+      return;
+    }
 
     const load = async () => {
       const [sessRes, clientRes, weekRes, recentRes] = await Promise.all([
@@ -29,7 +43,7 @@ export default function Dashboard() {
       setRecentSessions(recentRes.data || []);
     };
     load();
-  }, [profile]);
+  }, [profile, isDemo]);
 
   const statCards = [
     { label: "Total Sessions", value: stats.totalSessions, icon: Mic, color: "text-primary" },
