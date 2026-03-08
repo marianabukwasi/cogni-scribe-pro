@@ -32,7 +32,7 @@ export default function TopNav() {
   return (
     <header className="h-16 border-b border-border bg-surface flex items-center px-6 shrink-0">
       <Link to="/dashboard" className="flex items-center gap-1 mr-10">
-        <span className="font-heading text-2xl text-foreground">medic</span>
+        <span className="font-heading text-2xl text-foreground">kloer</span>
         <span className="w-2 h-2 rounded-full bg-primary inline-block mb-1" />
         <span className="font-heading text-2xl text-foreground">ai</span>
       </Link>
