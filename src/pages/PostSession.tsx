@@ -221,7 +221,9 @@ const chatResponses: Record<string, string> = {
 export default function PostSession() {
   const { id } = useParams();
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const navigate = useNavigate();
+  const aiChat = useAIChat();
 
   const pk = getProfKey(profile?.profession);
 
@@ -229,10 +231,10 @@ export default function PostSession() {
   const [summaryFields, setSummaryFields] = useState<Record<string, string>>({});
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [forwardItems, setForwardItems] = useState<ForwardItem[]>([]);
   const [selectedForward, setSelectedForward] = useState<number[]>([]);
+  const [flags, setFlags] = useState<Flag[]>([]);
   const [flagStatuses, setFlagStatuses] = useState<Record<number, string>>({});
   const [regenerating, setRegenerating] = useState(false);
   const [notes, setNotes] = useState("");
@@ -243,9 +245,16 @@ export default function PostSession() {
   const [docLang, setDocLang] = useState("en");
   const [prescriptionCountry, setPrescriptionCountry] = useState("luxembourg");
   const [generating, setGenerating] = useState(false);
+  
+  // AI loading states
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [flagsLoading, setFlagsLoading] = useState(false);
+  const [forwardLoading, setForwardLoading] = useState(false);
+  const [summaryDone, setSummaryDone] = useState(false);
+  const [flagsDone, setFlagsDone] = useState(false);
+  const [forwardDone, setForwardDone] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const flags = getDemoFlags(pk);
   const suggestions = chatSuggestions[pk];
   const profDocTypes = docTypes[pk];
 
