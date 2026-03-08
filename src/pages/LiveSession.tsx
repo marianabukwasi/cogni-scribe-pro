@@ -268,16 +268,65 @@ export default function LiveSession() {
     if (visibleLines >= 10 && alerts.length === 0) setAlerts([...demoAlerts]);
   }, [visibleLines, alerts.length]);
 
+  // Track new transcript utterances for AI suggestions
+  const prevLineCount = useRef(0);
   useEffect(() => {
-    if (paused || sessionEnded) return;
+    if (isDemo) return;
+    const currentCount = deepgram.lines.filter(l => !l.isInterim).length;
+    if (currentCount > prevLineCount.current) {
+      const newLines = currentCount - prevLineCount.current;
+      for (let i = 0; i < newLines; i++) aiSuggestions.trackNewUtterance();
+      prevLineCount.current = currentCount;
+    }
+  }, [deepgram.lines.length, isDemo]);
+
+  // Build transcript text for AI
+  const getTranscriptText = useCallback(() => {
+    const lines = isDemo ? demoTranscript.slice(0, visibleLines) : deepgram.lines.filter(l => !l.isInterim);
+    return lines.map(l => `[${l.time}] ${l.speaker} (${l.lang}): ${l.text}`).join("\n");
+  }, [isDemo, visibleLines, deepgram.lines]);
+
+  // 30-second AI suggestion refresh
+  useEffect(() => {
+    if (paused || sessionEnded || isDemo) return;
     const iv = setInterval(() => {
       setRefreshCountdown(c => {
-        if (c <= 1) { toast.info("AI suggestions refreshed", { duration: 1500 }); return 30; }
+        if (c <= 1) {
+          // Trigger AI suggestion fetch
+          if (!isDemo && liveStarted) {
+            aiSuggestions.fetchSuggestions(
+              getTranscriptText(), pk,
+              profile?.profession || "professional",
+              profile?.specialty || undefined,
+              profile?.country_of_practice || undefined,
+            );
+          } else {
+            toast.info("AI suggestions refreshed", { duration: 1500 });
+          }
+          return 30;
+        }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [paused, sessionEnded]);
+  }, [paused, sessionEnded, isDemo, liveStarted, pk, getTranscriptText]);
+
+  // Manual refresh handler
+  const handleManualRefresh = useCallback(() => {
+    if (!isDemo && liveStarted) {
+      aiSuggestions.fetchSuggestions(
+        getTranscriptText(), pk,
+        profile?.profession || "professional",
+        profile?.specialty || undefined,
+        profile?.country_of_practice || undefined,
+        true // force
+      );
+      setRefreshCountdown(30);
+    } else {
+      toast.info("AI suggestions refreshed", { duration: 1500 });
+      setRefreshCountdown(30);
+    }
+  }, [isDemo, liveStarted, pk, getTranscriptText]);
 
   useEffect(() => {
     if (!id || !notes) return;
