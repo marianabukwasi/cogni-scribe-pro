@@ -17,8 +17,9 @@ import { toast } from "sonner";
 import {
   Globe, Bell, Shield, User, CreditCard, Palette, Building2, Users,
   Lock, Upload, Mail, Key, Trash2, Plus, Check, Crown, Loader2,
-  AlertTriangle, Sparkles, FileText, Stethoscope, RefreshCw
+  AlertTriangle, Sparkles, FileText, Stethoscope, RefreshCw, Handshake
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // ─── Types & Helpers ────────────────────────────────────
 type ProfKey = "medical" | "legal" | "ngo" | "therapy" | "generic";
@@ -182,6 +183,7 @@ export default function SettingsPage() {
           <TabsTrigger value="profile" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><User className="w-3.5 h-3.5" />Profile</TabsTrigger>
           <TabsTrigger value="account" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><CreditCard className="w-3.5 h-3.5" />Account</TabsTrigger>
           <TabsTrigger value="whitelabel" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><Palette className="w-3.5 h-3.5" />White Label</TabsTrigger>
+          <TabsTrigger value="partnerships" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><Handshake className="w-3.5 h-3.5" />Partnerships</TabsTrigger>
         </TabsList>
 
         {/* ─── Language Tab ────────────────────────────── */}
@@ -587,6 +589,17 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ─── Partnerships Tab ──────────────────────── */}
+      <TabsContent value="partnerships">
+        <div className="glass-card p-6 space-y-4">
+          <h2 className="font-heading text-xl text-foreground">Partnerships</h2>
+          <p className="text-sm text-muted-foreground">Generate pilot agreements to share Kloer.ai with partner organisations for testing.</p>
+          <Link to="/settings/pilot-agreement">
+            <Button className="gap-2"><Handshake className="w-4 h-4" />Create Pilot Agreement</Button>
+          </Link>
+        </div>
+      </TabsContent>
     </div>
   );
 }

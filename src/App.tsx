@@ -28,6 +28,7 @@ import Billing from "./pages/Billing";
 import NGOApplication from "./pages/NGOApplication";
 import NGOIntake from "./pages/NGOIntake";
 import GrantReporting from "./pages/GrantReporting";
+import PilotAgreement from "./pages/PilotAgreement";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,7 @@ const App = () => (
               <Route path="/knowledge-base" element={<KnowledgeBase />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/intake-templates" element={<IntakeTemplates />} />
+              <Route path="/settings/pilot-agreement" element={<PilotAgreement />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/ngo-intake" element={<NGOIntake />} />
               <Route path="/grant-reporting" element={<GrantReporting />} />
