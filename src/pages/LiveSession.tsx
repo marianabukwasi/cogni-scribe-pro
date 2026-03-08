@@ -172,6 +172,9 @@ export default function LiveSession() {
   const deepgram = useDeepgramTranscription();
   const aiSuggestions = useAISuggestions();
 
+  const alertStyle = profile?.alert_style || ["silent_flash"];
+  const alertSystem = useAlertSystem({ alertStyles: alertStyle });
+
   const pk = getProfessionKey(profile?.profession);
   const sections = sectionTitles[pk];
   const demoSuggestions = getDemoSuggestions(pk);
@@ -188,7 +191,6 @@ export default function LiveSession() {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showScrubDialog, setShowScrubDialog] = useState(false);
   const [scrubText, setScrubText] = useState("");
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [scrubLog, setScrubLog] = useState<string[]>([]);
   const [customBasketItem, setCustomBasketItem] = useState("");
@@ -198,6 +200,7 @@ export default function LiveSession() {
   const [selectedRetention, setSelectedRetention] = useState<string | null>(null);
   const [purgeTimer, setPurgeTimer] = useState((profile?.auto_purge_minutes || 10) * 60);
   const [decisionMade, setDecisionMade] = useState(false);
+  const [liveStarted, setLiveStarted] = useState(false);
   const [liveStarted, setLiveStarted] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
