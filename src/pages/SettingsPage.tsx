@@ -183,6 +183,7 @@ export default function SettingsPage() {
           <TabsTrigger value="profile" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><User className="w-3.5 h-3.5" />Profile</TabsTrigger>
           <TabsTrigger value="account" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><CreditCard className="w-3.5 h-3.5" />Account</TabsTrigger>
           <TabsTrigger value="whitelabel" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><Palette className="w-3.5 h-3.5" />White Label</TabsTrigger>
+          <TabsTrigger value="partnerships" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5 text-xs"><Handshake className="w-3.5 h-3.5" />Partnerships</TabsTrigger>
         </TabsList>
 
         {/* ─── Language Tab ────────────────────────────── */}
