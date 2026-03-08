@@ -282,7 +282,7 @@ export default function KnowledgeBase() {
 
       {/* Tabs */}
       <Tabs defaultValue={categories[0].key}>
-        <TabsList className="bg-surface border border-border flex-wrap h-auto gap-1 p-1">
+        <TabsList className="bg-surface border border-border flex-wrap h-auto gap-1 p-1 overflow-x-auto">
           {categories.map(c => (
             <TabsTrigger key={c.key} value={c.key} className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-2 text-xs">
               <c.icon className="w-3.5 h-3.5" />{c.label}
