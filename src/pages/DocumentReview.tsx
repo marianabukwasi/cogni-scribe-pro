@@ -573,7 +573,7 @@ export default function DocumentReview() {
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" className="w-full mt-6 border-border text-muted-foreground text-xs gap-1">
+            <Button variant="outline" size="sm" className="w-full mt-6 border-border text-muted-foreground text-xs gap-1" onClick={() => generateAuditTrailPDF({ entries: auditTrail, documentTitle: getDemoFormatLabel(pk), sessionDate })}>
               <Download className="w-3 h-3" />Export Audit Trail
             </Button>
           </div>
