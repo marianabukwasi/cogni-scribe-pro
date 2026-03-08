@@ -213,9 +213,16 @@ export default function KnowledgeBase() {
     e.target.value = "";
   };
 
-  const deleteItem = (id: string) => {
+  const deleteItem = async (id: string) => {
+    const item = items.find(i => i.id === id);
     setItems(prev => prev.filter(i => i.id !== id));
-    if (!isDemo) supabase.from("knowledge_base_items").delete().eq("id", id);
+    if (!isDemo) {
+      // Delete from storage if file_url exists
+      if (item?.file_url) {
+        await supabase.storage.from("knowledge-base").remove([item.file_url]);
+      }
+      await supabase.from("knowledge_base_items").delete().eq("id", id);
+    }
     toast.success("Item removed");
   };
 
