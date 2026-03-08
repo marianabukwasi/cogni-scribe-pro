@@ -287,6 +287,7 @@ export default function LiveSession() {
 
   const handleEndSession = async () => {
     if (!id) return;
+    // Save session state first
     await supabase.from("sessions").update({
       status: "ended" as any,
       end_time: new Date().toISOString(),
@@ -296,7 +297,52 @@ export default function LiveSession() {
       selected_items: basketItems.map(b => ({ category: b.category, title: b.title, detail: b.detail, isCustom: b.isCustom || false })) as any,
     }).eq("id", id);
     setSessionEnded(true);
-    navigate(`/session/${id}/post`);
+    setShowEndDialog(false);
+    setShowDecisionGate(true);
+  };
+
+  // Auto-purge countdown for decision gate
+  useEffect(() => {
+    if (!showDecisionGate || decisionMade) return;
+    if (purgeTimer <= 0) {
+      handleRetentionDecision("summary_only");
+      return;
+    }
+    const iv = setInterval(() => setPurgeTimer(t => t - 1), 1000);
+    return () => clearInterval(iv);
+  }, [showDecisionGate, purgeTimer, decisionMade]);
+
+  const handleRetentionDecision = async (decision: string) => {
+    if (!id || decisionMade) return;
+    setDecisionMade(true);
+    setSelectedRetention(decision);
+
+    const retainedItems: string[] = [];
+    if (decision === "summary_only") retainedItems.push("summary", "selected_items");
+    if (decision === "transcript_summary") retainedItems.push("transcript", "summary", "selected_items");
+    if (decision === "keep_everything") retainedItems.push("audio", "transcript", "summary", "selected_items");
+
+    await supabase.from("sessions").update({
+      retention_decision: decision as any,
+      decision_timestamp: new Date().toISOString(),
+    }).eq("id", id);
+
+    // Simulate audio deletion for non-keep-everything
+    if (decision !== "keep_everything") {
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    toast.success(`Session saved. ${retainedItems.length} items retained.`, { duration: 3000 });
+
+    setTimeout(() => {
+      navigate(`/session/${id}/post`);
+    }, 1500);
+  };
+
+  const formatPurgeTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
   const alertStyle = profile?.alert_style || ["silent_flash"];
