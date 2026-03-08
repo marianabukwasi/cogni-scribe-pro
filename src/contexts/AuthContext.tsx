@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useDemo, DEMO_PROFILE, DEMO_USER } from "./DemoContext";
 
 interface Profile {
   id: string;
@@ -43,10 +44,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { isDemo } = useDemo();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Demo mode: provide mock user/profile
+  useEffect(() => {
+    if (isDemo) {
+      setUser(DEMO_USER as any);
+      setSession({ user: DEMO_USER } as any);
+      setProfile(DEMO_PROFILE as any);
+      setLoading(false);
+    }
+  }, [isDemo]);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
