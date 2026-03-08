@@ -48,7 +48,7 @@ export default function SignUp() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-1 mb-2">
-            <span className="font-heading text-4xl text-foreground">medic</span>
+            <span className="font-heading text-4xl text-foreground">kloer</span>
             <span className="w-3 h-3 rounded-full bg-primary inline-block mb-1" />
             <span className="font-heading text-4xl text-foreground">ai</span>
           </div>
