@@ -236,6 +236,7 @@ export default function PostSession() {
   const [selectedForward, setSelectedForward] = useState<number[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [flagStatuses, setFlagStatuses] = useState<Record<number, string>>({});
+  const [sessionAlerts, setSessionAlerts] = useState<any[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [notes, setNotes] = useState("");
   const [customForwardText, setCustomForwardText] = useState("");
