@@ -12,6 +12,18 @@ import { Check, Upload } from "lucide-react";
 
 const steps = ["Your Practice", "Languages", "Preferences", "Upload Samples"];
 
+const professions = [
+  { value: "medical_doctor", label: "Medical Doctor" },
+  { value: "therapist", label: "Therapist / Psychologist" },
+  { value: "lawyer", label: "Lawyer" },
+  { value: "financial_advisor", label: "Financial Advisor" },
+  { value: "hr_professional", label: "HR Professional" },
+  { value: "ngo_caseworker", label: "NGO Caseworker" },
+  { value: "social_worker", label: "Social Worker" },
+  { value: "refugee_support", label: "Refugee / Asylum Support" },
+  { value: "other", label: "Other" },
+];
+
 const countries = ["Luxembourg", "Hungary", "Belgium", "France", "Germany", "Austria", "Other EU", "Other"];
 const langOptions = ["English", "French", "German", "Luxembourgish", "Hungarian", "Spanish", "Dutch", "Italian", "Arabic", "Other"];
 const rxFormats = ["Luxembourg / eSanté", "Hungary / NEAK", "France", "Germany", "Belgium", "Austria", "Other EU Standard"];
