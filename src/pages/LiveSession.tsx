@@ -614,10 +614,10 @@ export default function LiveSession() {
         </div>
       )}
 
-      {/* ─── Three Columns ───────────────────────────── */}
+      {/* ─── Three Columns (desktop) / Tabs (mobile) ── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left — Transcript (40%) */}
-        <div className="w-[40%] border-r border-border flex flex-col">
+        {/* Left — Transcript */}
+        <div className={`${isMobile ? (mobileTab === "transcript" ? "w-full" : "hidden") : "w-[40%]"} border-r border-border flex flex-col`}>
           <div className="p-3 border-b border-border flex items-center gap-2">
             <Mic className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground">Live Transcript</span>
