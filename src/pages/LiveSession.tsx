@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
+import { useDeepgramTranscription, TranscriptLine } from "@/hooks/useDeepgramTranscription";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,9 +11,9 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
-  Mic, Pause, Play, Square, Clock, Shield, AlertTriangle,
+  Mic, MicOff, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus, RefreshCw, FileText, Archive, Timer
+  Plus, RefreshCw, FileText, Archive, Timer, WifiOff, Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -164,6 +166,8 @@ export default function LiveSession() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
+  const deepgram = useDeepgramTranscription();
 
   const pk = getProfessionKey(profile?.profession);
   const sections = sectionTitles[pk];
@@ -188,9 +192,15 @@ export default function LiveSession() {
   const [selectedRetention, setSelectedRetention] = useState<string | null>(null);
   const [purgeTimer, setPurgeTimer] = useState((profile?.auto_purge_minutes || 10) * 60);
   const [decisionMade, setDecisionMade] = useState(false);
+  const [liveStarted, setLiveStarted] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const lastNotesLength = useRef(0);
+
+  // The current transcript lines — either from Deepgram or demo simulation
+  const transcriptLines: (TranscriptLine & { isInterim?: boolean })[] = isDemo
+    ? demoTranscript.slice(0, visibleLines)
+    : deepgram.lines;
 
   useEffect(() => {
     if (!id) return;
@@ -207,7 +217,9 @@ export default function LiveSession() {
     return () => clearInterval(iv);
   }, [paused, sessionEnded]);
 
+  // Demo mode: simulate transcript lines appearing
   useEffect(() => {
+    if (!isDemo) return;
     if (paused || sessionEnded || visibleLines >= demoTranscript.length) return;
     const t = setTimeout(() => {
       setVisibleLines(v => v + 1);
@@ -216,7 +228,36 @@ export default function LiveSession() {
       }, 50);
     }, 2500 + Math.random() * 2500);
     return () => clearTimeout(t);
-  }, [visibleLines, paused, sessionEnded]);
+  }, [visibleLines, paused, sessionEnded, isDemo]);
+
+  // Live mode: auto-scroll when new lines arrive
+  useEffect(() => {
+    if (isDemo) return;
+    setTimeout(() => {
+      if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }, 50);
+  }, [deepgram.lines.length, isDemo]);
+
+  // Start live transcription (non-demo)
+  const startLiveTranscription = async () => {
+    if (isDemo) return;
+    const ok = await deepgram.connect(session?.session_language || "multi");
+    if (ok) {
+      setLiveStarted(true);
+      toast.success("Live transcription started");
+    } else if (deepgram.micPermission === "denied") {
+      toast.error("Microphone access is required for live transcription");
+    } else {
+      toast.error("Could not start transcription — falling back to demo mode");
+    }
+  };
+
+  // Handle pause/resume for live mode
+  useEffect(() => {
+    if (isDemo || !liveStarted) return;
+    if (paused) deepgram.pause();
+    else deepgram.resume();
+  }, [paused, isDemo, liveStarted]);
 
   useEffect(() => {
     if (visibleLines >= 10 && alerts.length === 0) setAlerts([...demoAlerts]);
@@ -287,13 +328,15 @@ export default function LiveSession() {
 
   const handleEndSession = async () => {
     if (!id) return;
-    // Save session state first
+    // Stop live transcription
+    if (!isDemo && liveStarted) deepgram.disconnect();
+    // Save session state
     await supabase.from("sessions").update({
       status: "ended" as any,
       end_time: new Date().toISOString(),
       duration_seconds: timer,
       manual_notes: notes,
-      transcript: demoTranscript.slice(0, visibleLines) as any,
+      transcript: transcriptLines.filter(l => !l.isInterim) as any,
       selected_items: basketItems.map(b => ({ category: b.category, title: b.title, detail: b.detail, isCustom: b.isCustom || false })) as any,
     }).eq("id", id);
     setSessionEnded(true);
@@ -431,18 +474,55 @@ export default function LiveSession() {
           <div className="p-3 border-b border-border flex items-center gap-2">
             <Mic className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground">Live Transcript</span>
-            {!paused && !sessionEnded && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
+            {!isDemo && deepgram.isConnecting && <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1"><Loader2 className="w-3 h-3 animate-spin" />Connecting</span>}
+            {!isDemo && deepgram.error && deepgram.isConnected === false && liveStarted && <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1"><WifiOff className="w-3 h-3" />Reconnecting</span>}
+            {(isDemo ? !paused && !sessionEnded : deepgram.isConnected && !paused) && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
             {paused && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">PAUSED</span>}
             {sessionEnded && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">ENDED</span>}
           </div>
-          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-            {visibleLines === 0 && (
+
+          {/* Privacy notice */}
+          {!isDemo && liveStarted && !sessionEnded && (
+            <div className="px-4 py-1.5 bg-primary/5 border-b border-border flex items-center gap-2">
+              <Shield className="w-3 h-3 text-primary shrink-0" />
+              <span className="text-[10px] text-muted-foreground">Audio is transcribed in real time and not stored.</span>
+            </div>
+          )}
+
+          {/* Mic permission denied screen */}
+          {!isDemo && deepgram.micPermission === "denied" && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+              <MicOff className="w-12 h-12 text-destructive mb-3 opacity-60" />
+              <p className="text-sm font-medium text-foreground mb-1">Microphone Access Required</p>
+              <p className="text-xs text-muted-foreground mb-4 max-w-[260px]">
+                Please allow microphone access in your browser settings and reload the page to enable live transcription.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="border-border text-foreground">
+                Reload Page
+              </Button>
+            </div>
+          )}
+
+          {/* Start button for live mode */}
+          {!isDemo && !liveStarted && !sessionEnded && deepgram.micPermission !== "denied" && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+              <Mic className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
+              <p className="text-sm text-muted-foreground mb-4">Start live transcription to begin capturing audio</p>
+              <Button onClick={startLiveTranscription} disabled={deepgram.isConnecting} className="gap-2">
+                {deepgram.isConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                {deepgram.isConnecting ? "Connecting..." : "Start Transcription"}
+              </Button>
+            </div>
+          )}
+
+          <div ref={transcriptRef} className={`flex-1 overflow-y-auto p-4 space-y-4 ${!isDemo && !liveStarted && !sessionEnded ? "hidden" : ""}`}>
+            {isDemo && visibleLines === 0 && (
               <div className="text-center py-16">
                 <Mic className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
                 <p className="text-sm text-muted-foreground">Press Start Session to begin transcribing</p>
               </div>
             )}
-            {demoTranscript.slice(0, visibleLines).map((line, i) => (
+            {transcriptLines.map((line, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-semibold ${line.speaker === "Professional" ? "text-primary" : line.speaker === "Client" ? "text-accent" : "text-warning"}`}>
@@ -452,7 +532,9 @@ export default function LiveSession() {
                   <span className="text-[10px] text-muted-foreground">{line.time}</span>
                   {line.lowConfidence && <AlertTriangle className="w-3 h-3 text-warning" />}
                 </div>
-                <p className={`text-sm text-foreground leading-relaxed ${line.lowConfidence ? "underline decoration-warning decoration-wavy decoration-1" : ""}`}>
+                <p className={`text-sm leading-relaxed ${
+                  line.isInterim ? "text-muted-foreground italic" : "text-foreground"
+                } ${line.lowConfidence ? "underline decoration-warning decoration-wavy decoration-1" : ""}`}>
                   {line.text}
                 </p>
               </div>
