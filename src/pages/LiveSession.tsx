@@ -184,6 +184,10 @@ export default function LiveSession() {
   const [customBasketItem, setCustomBasketItem] = useState("");
   const [refreshCountdown, setRefreshCountdown] = useState(30);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [showDecisionGate, setShowDecisionGate] = useState(false);
+  const [selectedRetention, setSelectedRetention] = useState<string | null>(null);
+  const [purgeTimer, setPurgeTimer] = useState((profile?.auto_purge_minutes || 10) * 60);
+  const [decisionMade, setDecisionMade] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const lastNotesLength = useRef(0);
