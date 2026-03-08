@@ -401,7 +401,7 @@ export default function PostSession() {
               )}
             </TabsTrigger>
             <TabsTrigger value="forward" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">Way Forward</TabsTrigger>
-          </Tabs>
+          </TabsList>
 
           {/* ─── Summary Tab ────────────────────────── */}
           <TabsContent value="summary" className="flex-1 overflow-hidden mt-0">
