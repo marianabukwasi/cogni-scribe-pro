@@ -60,7 +60,16 @@ export default function GrantReporting() {
               <SelectItem value="year" className="text-foreground">This Year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2"><Download className="w-4 h-4" /> Export PDF</Button>
+          <Button variant="outline" className="gap-2" onClick={() => generateGrantReportPDF({
+            period: period === "month" ? "This Month" : period === "quarter" ? "This Quarter" : "This Year",
+            beneficiaries: demoStats.totalBeneficiaries[period],
+            casesManaged: demoStats.casesByType.reduce((s, c) => s + c.count, 0),
+            languagesSupported: demoStats.languages.length,
+            referralsMade: demoStats.referralsMade,
+            casesByType: demoStats.casesByType,
+            needsCategories: demoStats.needsCategories,
+            languages: demoStats.languages,
+          })}><Download className="w-4 h-4" /> Export PDF</Button>
         </div>
       </div>
 

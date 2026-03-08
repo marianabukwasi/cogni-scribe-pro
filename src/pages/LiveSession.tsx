@@ -407,10 +407,33 @@ export default function LiveSession() {
     if (format === "highlight") setNotes(n => n + "⚡ ");
   };
 
-  const handleScrub = () => {
+  const handleScrub = async () => {
     if (!scrubText.trim()) return;
     setScrubLog(prev => [...prev, `[${new Date().toISOString()}] Detail scrubbed by professional`]);
-    toast.success("Detail permanently scrubbed from record");
+
+    // Server-side: delete transcript and clear session data from Supabase
+    if (id && !isDemo) {
+      await supabase.from("sessions").update({
+        transcript: [] as any,
+        manual_notes: "",
+        summary: null,
+        selected_items: [] as any,
+        points_to_note: [] as any,
+      }).eq("id", id);
+    }
+
+    // Stop live transcription and clear audio buffers
+    if (!isDemo && liveStarted) {
+      deepgram.disconnect();
+      deepgram.clearAudioBuffers();
+    }
+
+    // Clear all local state
+    setNotes("");
+    setBasketItems([]);
+    if (isDemo) setVisibleLines(0);
+
+    toast.success("All session data permanently wiped — transcript deleted from server and local state cleared");
     setShowScrubDialog(false);
     setScrubText("");
   };

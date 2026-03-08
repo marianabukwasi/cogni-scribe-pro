@@ -238,7 +238,7 @@ export default function PilotAgreement() {
                 <Button onClick={() => { toast.success("DOCX download started"); }} variant="outline" className="gap-2 border-border text-foreground">
                   <FileText className="w-4 h-4" />Download DOCX
                 </Button>
-                <Button onClick={() => { if (previewRef.current) { const w = window.open("", "_blank"); if (w) { w.document.write(previewRef.current.innerHTML); w.document.close(); w.print(); } } }} variant="outline" className="gap-2 border-border text-foreground">
+                <Button onClick={handleDownloadPDF} variant="outline" className="gap-2 border-border text-foreground">
                   <Printer className="w-4 h-4" />Print
                 </Button>
               </div>

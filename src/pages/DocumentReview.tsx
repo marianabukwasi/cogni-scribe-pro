@@ -807,8 +807,8 @@ export default function DocumentReview() {
                     </Button>
                   ) : (
                     <div className="flex gap-3">
-                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Download className="w-4 h-4" />PDF</Button>
-                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Printer className="w-4 h-4" />Print</Button>
+                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => currentRef && generateReferralPDF({ to: currentRef.to, specialty: currentRef.specialty, body: currentRef.body, profName, profOrg, clientName, sessionDate, language: currentRef.language })}><Download className="w-4 h-4" />PDF</Button>
+                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => currentRef && generateReferralPDF({ to: currentRef.to, specialty: currentRef.specialty, body: currentRef.body, profName, profOrg, clientName, sessionDate, language: currentRef.language })}><Printer className="w-4 h-4" />Print</Button>
                     </div>
                   )}
                 </div>
