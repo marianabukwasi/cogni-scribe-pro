@@ -693,8 +693,8 @@ export default function DocumentReview() {
               </Button>
             ) : (
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Download className="w-4 h-4" />PDF</Button>
-                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Printer className="w-4 h-4" />Print</Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => generatePrescriptionPDF({ profName, profOrg, profReg, clientName, sessionDate, countryFormat: cc.label, items: rxItems })}><Download className="w-4 h-4" />PDF</Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => { generatePrescriptionPDF({ profName, profOrg, profReg, clientName, sessionDate, countryFormat: cc.label, items: rxItems }); }}><Printer className="w-4 h-4" />Print</Button>
               </div>
             )}
           </div>
