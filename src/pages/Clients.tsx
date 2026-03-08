@@ -96,6 +96,7 @@ const emptyForm: ClientForm = {
 
 export default function Clients() {
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const [clients, setClients] = useState<any[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<string, { count: number; lastDate: string | null }>>({});
   const [search, setSearch] = useState("");
