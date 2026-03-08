@@ -36,14 +36,6 @@ interface Suggestion {
   section: string;
 }
 
-interface Alert {
-  id: string;
-  severity: "critical" | "important" | "info";
-  message: string;
-  timestamp: string;
-  read: boolean;
-}
-
 interface BasketItem {
   id: string;
   category: string;
@@ -67,8 +59,8 @@ const demoTranscript: Utterance[] = [
   { speaker: "Professional", lang: "EN", time: "00:02:08", text: "I'd like to check your eye pressure and do a fundoscopy today. I'm also going to refer you to ophthalmology." },
 ];
 
-const demoAlerts: Alert[] = [
-  { id: "1", severity: "critical", message: "Drug interaction: St. John's Wort detected — may interact with SSRIs and oral contraceptives. Verify patient's full medication list.", timestamp: "00:01:55", read: false },
+const demoAlerts = [
+  { severity: "critical" as const, message: "Drug interaction: St. John's Wort detected — may interact with SSRIs and oral contraceptives. Verify patient's full medication list.", timestamp: "00:01:55" },
 ];
 
 // ─── Profession-Adaptive Config ─────────────────────────
