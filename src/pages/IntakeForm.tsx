@@ -45,16 +45,12 @@ export default function IntakeForm() {
         setQuestions((template.questions as Question[]) || []);
       }
 
-      // Get professional info
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, organisation")
-        .eq("user_id", response.professional_id)
-        .single();
+      // Get professional info via secure function
+      const { data: prof } = await supabase.rpc("get_professional_info", { p_user_id: response.professional_id });
 
-      if (prof) {
-        setProfessionalName(prof.full_name);
-        setOrganisation(prof.organisation || "");
+      if (prof && prof.length > 0) {
+        setProfessionalName(prof[0].full_name);
+        setOrganisation(prof[0].organisation || "");
       }
 
       setLoading(false);
