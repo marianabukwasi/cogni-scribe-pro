@@ -267,9 +267,12 @@ export default function LiveSession() {
     else deepgram.resume();
   }, [paused, isDemo, liveStarted]);
 
+  // Demo mode: trigger demo alerts
   useEffect(() => {
-    if (visibleLines >= 10 && alerts.length === 0) setAlerts([...demoAlerts]);
-  }, [visibleLines, alerts.length]);
+    if (visibleLines >= 10 && alertSystem.alerts.length === 0 && isDemo) {
+      demoAlerts.forEach(a => alertSystem.triggerAlert(a));
+    }
+  }, [visibleLines, alertSystem.alerts.length, isDemo]);
 
   // Track new transcript utterances for AI suggestions
   const prevLineCount = useRef(0);
