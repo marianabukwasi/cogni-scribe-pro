@@ -386,7 +386,7 @@ export default function Clients() {
             const age = getAge(c.date_of_birth);
             const sessInfo = sessionCounts[c.id];
             return (
-              <Link key={c.id} to={`/clients/${c.id}`} className="glass-card p-5 hover:border-primary/50 transition-colors">
+              <Link key={c.id} to={`/clients/${c.id}`} className="glass-card p-4 md:p-5 hover:border-primary/50 transition-colors active:scale-[0.98]">
                 <div className="flex items-start gap-3">
                   <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                     <span className="text-primary text-sm font-medium">{c.first_name[0]}{c.last_name[0]}</span>
