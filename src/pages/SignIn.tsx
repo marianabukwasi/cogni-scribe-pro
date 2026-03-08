@@ -13,7 +13,13 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const { enableDemo } = useDemo();
   const navigate = useNavigate();
+
+  const handleDemo = () => {
+    enableDemo();
+    navigate("/dashboard");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
