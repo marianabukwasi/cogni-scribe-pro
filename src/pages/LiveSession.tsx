@@ -11,8 +11,9 @@ import { toast } from "sonner";
 import {
   Mic, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus, RefreshCw, FileText
+  Plus, RefreshCw, FileText, Archive, Timer
 } from "lucide-react";
+import { format } from "date-fns";
 
 // ─── Types ──────────────────────────────────────────────
 interface Utterance {
