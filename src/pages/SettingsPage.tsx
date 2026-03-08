@@ -17,8 +17,9 @@ import { toast } from "sonner";
 import {
   Globe, Bell, Shield, User, CreditCard, Palette, Building2, Users,
   Lock, Upload, Mail, Key, Trash2, Plus, Check, Crown, Loader2,
-  AlertTriangle, Sparkles, FileText, Stethoscope, RefreshCw
+  AlertTriangle, Sparkles, FileText, Stethoscope, RefreshCw, Handshake
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // ─── Types & Helpers ────────────────────────────────────
 type ProfKey = "medical" | "legal" | "ngo" | "therapy" | "generic";
