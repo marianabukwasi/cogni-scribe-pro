@@ -689,8 +689,8 @@ export default function LiveSession() {
           </div>
         </div>
 
-        {/* Middle — AI Suggestions (35%) */}
-        <div className="w-[35%] border-r border-border flex flex-col">
+        {/* Middle — AI Suggestions */}
+        <div className={`${isMobile ? (mobileTab === "suggestions" ? "w-full" : "hidden") : "w-[35%]"} border-r border-border flex flex-col`}>
           <div className="p-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
