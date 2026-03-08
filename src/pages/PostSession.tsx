@@ -641,6 +641,7 @@ export default function PostSession() {
               {forwardLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* ─── Summary Tab ────────────────────────── */}
           <TabsContent value="summary" className="flex-1 overflow-hidden mt-0">
