@@ -190,8 +190,8 @@ export default function Clients() {
   const upd = (key: keyof ClientForm, val: any) => setForm(f => ({ ...f, [key]: val }));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
         <h1 className="font-heading text-3xl text-foreground">Clients</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
