@@ -6,6 +6,7 @@ import { useDemo } from "@/contexts/DemoContext";
 import { useDeepgramTranscription, TranscriptLine } from "@/hooks/useDeepgramTranscription";
 import { useAISuggestions, AISuggestion } from "@/hooks/useAISuggestions";
 import { useAlertSystem, SessionAlert } from "@/hooks/useAlertSystem";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
