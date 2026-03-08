@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
+import { useDeepgramTranscription, TranscriptLine } from "@/hooks/useDeepgramTranscription";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,9 +11,9 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
-  Mic, Pause, Play, Square, Clock, Shield, AlertTriangle,
+  Mic, MicOff, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus, RefreshCw, FileText, Archive, Timer
+  Plus, RefreshCw, FileText, Archive, Timer, WifiOff, Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 
