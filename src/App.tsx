@@ -28,6 +28,7 @@ import Billing from "./pages/Billing";
 import NGOApplication from "./pages/NGOApplication";
 import NGOIntake from "./pages/NGOIntake";
 import GrantReporting from "./pages/GrantReporting";
+import PilotAgreement from "./pages/PilotAgreement";
 
 const queryClient = new QueryClient();
 
