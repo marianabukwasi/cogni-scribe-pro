@@ -746,6 +746,7 @@ export default function LiveSession() {
                   <p className="text-sm text-muted-foreground">Suggestions will appear as the conversation progresses.</p>
                 </div>
               )}
+              {sectionOrder.map(sectionKey => {
                 const items = groupedSuggestions[sectionKey];
                 if (!items || items.length === 0) return null;
                 const isWarningSection = sectionKey === "warnings";
