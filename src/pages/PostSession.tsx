@@ -480,14 +480,62 @@ export default function PostSession() {
   // ─── Document Generation ──────────────────────────────
   const toggleDoc = (key: string) => setSelectedDocs(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      setShowGenerateDialog(false);
-      toast.success(`${selectedDocs.length} documents generated`);
-      navigate(`/session/${id}/documents`);
-    }, 3000);
+    
+    if (!isDemo && session?.transcript) {
+      // Generate documents via AI in parallel
+      const transcript = getTranscriptText();
+      const selectedBasketItems = selectedForward.map(i => forwardItems[i]);
+      
+      const promises = selectedDocs.map(async (docKey) => {
+        try {
+          const { data, error } = await supabase.functions.invoke("ai-documents", {
+            body: {
+              docType: docKey,
+              format: docFormats[docKey],
+              language: docLang,
+              prescriptionCountry,
+              transcript,
+              selectedItems: selectedBasketItems,
+              professionalName: profile?.full_name,
+              profession: profile?.profession,
+              specialty: profile?.specialty,
+            },
+          });
+          
+          if (error || data?.error) {
+            console.error(`Doc generation error for ${docKey}:`, error || data?.error);
+            return null;
+          }
+          
+          // Save generated document to database
+          if (data?.document) {
+            await supabase.from("documents").insert({
+              professional_id: profile?.user_id || "",
+              session_id: id,
+              client_id: session?.client_id,
+              document_type: docKey,
+              title: `${docKey.replace(/_/g, " ")} - ${session?.client_name || "Client"}`,
+              content: data.document,
+              language: docLang,
+              format: docFormats[docKey] || null,
+            });
+          }
+          return data?.document;
+        } catch (e) {
+          console.error(`Doc generation failed for ${docKey}:`, e);
+          return null;
+        }
+      });
+      
+      await Promise.all(promises);
+    }
+    
+    setGenerating(false);
+    setShowGenerateDialog(false);
+    toast.success(`${selectedDocs.length} documents generated`);
+    navigate(`/session/${id}/documents`);
   };
 
   // ─── Computed ─────────────────────────────────────────
