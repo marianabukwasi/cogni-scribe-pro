@@ -384,7 +384,7 @@ export default function LiveSession() {
     setScrubText("");
   };
 
-  const unreadAlerts = alerts.filter(a => !a.read).length;
+  const unreadAlerts = alertSystem.unreadCount;
 
   const handleEndSession = async () => {
     if (!id) return;
