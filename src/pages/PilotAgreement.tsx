@@ -58,25 +58,10 @@ export default function PilotAgreement() {
   const isFormValid = yourName && partnerOrg && partnerContact && startDate && pilotUsers;
 
   const handleDownloadPDF = () => {
-    if (!previewRef.current) return;
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) { toast.error("Please allow pop-ups to download"); return; }
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Pilot Agreement — Kloer.ai</title><style>
-      body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1a1a1a;line-height:1.6}
-      h1{font-size:22px;text-align:center;margin-bottom:4px}
-      h2{font-size:14px;text-align:center;color:#666;margin-top:0;font-weight:normal}
-      .parties{margin:24px 0}
-      .terms ol{padding-left:20px}
-      .terms li{margin-bottom:8px}
-      .sig-block{display:flex;justify-content:space-between;margin-top:48px}
-      .sig-col{width:45%}
-      .sig-line{border-bottom:1px solid #333;margin-top:48px;margin-bottom:4px}
-      .sig-label{font-size:12px;color:#666}
-      .date{text-align:center;margin-top:32px;color:#666;font-size:13px}
-      @media print{body{margin:20px}}
-    </style></head><body>${previewRef.current.innerHTML}</body></html>`);
-    printWindow.document.close();
-    printWindow.print();
+    generatePilotAgreementPDF({
+      yourName, yourOrg, partnerContact, partnerOrg,
+      startDate: formattedStart, endDate, weeks, pilotUsers, useCase, specialConditions,
+    });
   };
 
   const handleSendEmail = () => {
