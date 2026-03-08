@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,34 +7,83 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Mic, Pause, Play, Square, Clock, Shield, AlertTriangle, Check, X, Sparkles } from "lucide-react";
+import {
+  Mic, Pause, Play, Square, Clock, Shield, AlertTriangle,
+  Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
+  Plus
+} from "lucide-react";
 
-const demoTranscript = [
+// ─── Demo Data ──────────────────────────────────────────
+interface Utterance {
+  speaker: string;
+  lang: string;
+  time: string;
+  text: string;
+  lowConfidence?: boolean;
+}
+
+const demoTranscript: Utterance[] = [
   { speaker: "Professional", lang: "EN", time: "00:00:12", text: "Good morning. How have you been feeling since our last visit?" },
   { speaker: "Client", lang: "EN", time: "00:00:18", text: "The headaches have been getting worse. Especially in the mornings when I wake up." },
   { speaker: "Professional", lang: "EN", time: "00:00:28", text: "I see. Can you describe the quality of the pain? Is it throbbing, sharp, or more of a pressure feeling?" },
   { speaker: "Client", lang: "FR", time: "00:00:38", text: "C'est plutôt une pression... comme si ma tête allait exploser. Et ma vision devient floue parfois." },
   { speaker: "Professional", lang: "EN", time: "00:00:52", text: "Visual disturbances with the headache — that's important. How long have you been experiencing the visual changes?" },
-  { speaker: "Client", lang: "EN", time: "00:01:05", text: "About two weeks now. Sometimes I see double, especially when looking to the side." },
+  { speaker: "Client", lang: "EN", time: "00:01:05", text: "About two weeks now. Sometimes I see double, especially when looking to the side.", lowConfidence: true },
   { speaker: "Professional", lang: "EN", time: "00:01:18", text: "Have you noticed any new medications or changes in your routine recently?" },
   { speaker: "Client", lang: "EN", time: "00:01:28", text: "I started taking some new supplements. And I've been under a lot of stress at work." },
+  { speaker: "Professional", lang: "DE", time: "00:01:42", text: "Welche Nahrungsergänzungsmittel nehmen Sie ein? Das ist wichtig für die Diagnose." },
+  { speaker: "Client", lang: "EN", time: "00:01:55", text: "I'm taking St. John's Wort for my mood, and some vitamin D and omega-3." },
+  { speaker: "Professional", lang: "EN", time: "00:02:08", text: "I'd like to check your eye pressure and do a fundoscopy today. I'm also going to refer you to ophthalmology." },
 ];
 
-const demoSuggestions = [
-  { category: "Warning", color: "destructive", title: "Drug Interaction Alert", detail: "Patient mentioned supplements — verify no interaction with existing prescriptions. Certain herbal supplements can increase intracranial pressure.", confidence: "" },
-  { category: "Diagnosis", color: "primary", title: "Idiopathic Intracranial Hypertension (IIH)", detail: "Headache with visual disturbances, pressure-type pain, bilateral papilledema pattern. Consider urgent fundoscopy.", confidence: "High match" },
-  { category: "Diagnosis", color: "primary", title: "Migraine with Aura", detail: "Visual disturbances preceding/accompanying headache. Less likely given pressure quality and progressive course.", confidence: "Possible" },
-  { category: "Medication", color: "accent", title: "Acetazolamide (Diamox) 250mg", detail: "First-line for IIH. Reduces CSF production. Start 250mg twice daily, titrate up.", confidence: "" },
-  { category: "Procedure", color: "warning", title: "Urgent Fundoscopy", detail: "Required to assess papilledema. If papilledema confirmed, consider lumbar puncture with opening pressure.", confidence: "" },
-  { category: "Referral", color: "purple", title: "Ophthalmology Referral", detail: "Visual field assessment and OCT to document any optic disc swelling.", confidence: "" },
+interface Suggestion {
+  category: string;
+  title: string;
+  detail: string;
+  confidence: string;
+}
+
+const demoSuggestions: Suggestion[] = [
+  { category: "Warning", title: "Drug Interaction Alert", detail: "St. John's Wort may interact with multiple medications. Verify current prescription list. Can reduce effectiveness of oral contraceptives and blood thinners.", confidence: "" },
+  { category: "Diagnosis", title: "Idiopathic Intracranial Hypertension (IIH)", detail: "Headache with visual disturbances, pressure-type pain, bilateral papilledema pattern. Consider urgent fundoscopy.", confidence: "High match" },
+  { category: "Diagnosis", title: "Migraine with Aura", detail: "Visual disturbances preceding/accompanying headache. Less likely given pressure quality and progressive course.", confidence: "Possible" },
+  { category: "Medication", title: "Acetazolamide (Diamox) 250mg", detail: "First-line for IIH. Reduces CSF production. Start 250mg twice daily, titrate up.", confidence: "" },
+  { category: "Procedure", title: "Urgent Fundoscopy", detail: "Required to assess papilledema. If confirmed, consider lumbar puncture with opening pressure.", confidence: "" },
+  { category: "Referral", title: "Ophthalmology Referral", detail: "Visual field assessment and OCT to document any optic disc swelling.", confidence: "" },
+  { category: "Next Step", title: "Follow-up in 2 weeks", detail: "Review fundoscopy results, medication response, and visual symptoms progression.", confidence: "" },
 ];
 
+interface Alert {
+  id: string;
+  severity: "critical" | "important" | "info";
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+const demoAlerts: Alert[] = [
+  { id: "1", severity: "critical", message: "Drug interaction: St. John's Wort detected — may interact with SSRIs and oral contraceptives. Verify patient's full medication list.", timestamp: "00:01:55", read: false },
+];
+
+// ─── Category Styling ───────────────────────────────────
+const categoryColors: Record<string, string> = {
+  Warning: "bg-destructive/20 text-destructive",
+  Diagnosis: "bg-primary/20 text-primary",
+  Medication: "bg-accent/20 text-accent",
+  Procedure: "bg-warning/20 text-warning",
+  Referral: "bg-purple-500/20 text-purple-400",
+  "Next Step": "bg-secondary text-muted-foreground",
+};
+
+// ─── Component ──────────────────────────────────────────
 export default function LiveSession() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
+
   const [session, setSession] = useState<any>(null);
   const [recording, setRecording] = useState(true);
+  const [paused, setPaused] = useState(false);
   const [timer, setTimer] = useState(0);
   const [notes, setNotes] = useState("");
   const [visibleLines, setVisibleLines] = useState(0);
@@ -42,36 +91,94 @@ export default function LiveSession() {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showScrubDialog, setShowScrubDialog] = useState(false);
   const [scrubText, setScrubText] = useState("");
-  const [warnings, setWarnings] = useState(1);
-  const transcriptRef = useRef<HTMLDivElement>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [scrubLog, setScrubLog] = useState<string[]>([]);
+  const [customBasketItem, setCustomBasketItem] = useState("");
 
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const lastNotesLength = useRef(0);
+
+  // Load session
   useEffect(() => {
     if (!id) return;
-    supabase.from("sessions").select("*").eq("id", id).single().then(({ data }) => setSession(data));
+    supabase.from("sessions").select("*").eq("id", id).single().then(({ data }) => {
+      setSession(data);
+      if (data?.manual_notes) setNotes(data.manual_notes);
+    });
   }, [id]);
 
+  // Timer
   useEffect(() => {
-    if (!recording) return;
+    if (paused) return;
     const iv = setInterval(() => setTimer(t => t + 1), 1000);
     return () => clearInterval(iv);
-  }, [recording]);
+  }, [paused]);
 
   // Demo transcript animation
   useEffect(() => {
-    if (visibleLines >= demoTranscript.length) return;
+    if (paused || visibleLines >= demoTranscript.length) return;
     const t = setTimeout(() => {
       setVisibleLines(v => v + 1);
-      if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
-    }, 3000 + Math.random() * 2000);
+      setTimeout(() => {
+        if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+      }, 50);
+    }, 2500 + Math.random() * 2500);
     return () => clearTimeout(t);
-  }, [visibleLines]);
+  }, [visibleLines, paused]);
+
+  // Trigger demo alert when drug interaction line appears
+  useEffect(() => {
+    if (visibleLines >= 10 && alerts.length === 0) {
+      setAlerts([...demoAlerts]);
+    }
+  }, [visibleLines, alerts.length]);
+
+  // Auto-save notes every 10s
+  useEffect(() => {
+    if (!id || !notes) return;
+    const t = setTimeout(() => {
+      supabase.from("sessions").update({ manual_notes: notes }).eq("id", id);
+    }, 10000);
+    return () => clearTimeout(t);
+  }, [notes, id]);
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const togglePause = () => setPaused(p => !p);
 
   const toggleItem = (i: number) => {
     if (demoSuggestions[i].category === "Warning") return;
     setSelectedItems(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
   };
+
+  // Auto-timestamp on new paragraph
+  const handleNotesChange = (value: string) => {
+    if (value.endsWith("\n\n") && value.length > lastNotesLength.current) {
+      const ts = formatTime(timer);
+      value = value + `[${ts}] `;
+    }
+    lastNotesLength.current = value.length;
+    setNotes(value);
+  };
+
+  // Notes toolbar
+  const insertNoteFormat = (format: string) => {
+    if (format === "bold") setNotes(n => n + "**");
+    if (format === "bullet") setNotes(n => n + "\n• ");
+    if (format === "highlight") setNotes(n => n + "⚡ ");
+  };
+
+  const handleScrub = () => {
+    if (!scrubText.trim()) return;
+    const ts = new Date().toISOString();
+    setScrubLog(prev => [...prev, `[${ts}] Detail scrubbed by professional`]);
+    toast.success("Detail permanently scrubbed from record");
+    setShowScrubDialog(false);
+    setScrubText("");
+  };
+
+  const unreadAlerts = alerts.filter(a => !a.read).length;
 
   const handleEndSession = async () => {
     if (!id) return;
@@ -80,145 +187,253 @@ export default function LiveSession() {
       end_time: new Date().toISOString(),
       duration_seconds: timer,
       manual_notes: notes,
-      selected_items: selectedItems.map(i => demoSuggestions[i]),
+      transcript: demoTranscript.slice(0, visibleLines) as any,
+      selected_items: selectedItems.map(i => demoSuggestions[i]) as any,
     }).eq("id", id);
     navigate(`/session/${id}/post`);
   };
 
-  const categoryColors: Record<string, string> = {
-    Warning: "bg-destructive/20 text-destructive",
-    Diagnosis: "bg-primary/20 text-primary",
-    Medication: "bg-accent/20 text-accent",
-    Procedure: "bg-warning/20 text-warning",
-    Referral: "bg-purple-500/20 text-purple-400",
+  const addCustomToBasket = () => {
+    if (!customBasketItem.trim()) return;
+    // We'll add custom items as extra indices beyond demoSuggestions length
+    toast.success(`"${customBasketItem}" added to basket`);
+    setCustomBasketItem("");
   };
 
+  const alertStyle = profile?.alert_style || ["silent_flash"];
+
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col">
-      {/* Top Bar */}
+    <div className="h-screen flex flex-col bg-background">
+      {/* ─── Top Bar ─────────────────────────────────── */}
       <div className="h-14 bg-surface border-b border-border flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-foreground">{session?.client_name || "Session"}</span>
-          <span className="text-xs text-muted-foreground">{session?.session_type}</span>
+          {session?.session_type && (
+            <span className="status-badge bg-secondary text-muted-foreground text-[10px]">{session.session_type}</span>
+          )}
+          {/* Alert style indicator */}
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            {alertStyle.includes("silent_flash") && <BellOff className="w-3 h-3" />}
+            {alertStyle.includes("phone_vibration") && <Bell className="w-3 h-3" />}
+            {alertStyle.includes("silent_flash") ? "Silent" : "Vibrate"}
+          </span>
         </div>
-        <div className="flex items-center gap-4">
-          {recording && (
-            <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
+          {/* Alert indicator */}
+          {unreadAlerts > 0 && (
+            <button onClick={() => setShowAlerts(!showAlerts)} className="relative flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-warning pulse-recording" />
+              <span className="text-xs text-warning font-medium">{unreadAlerts}</span>
+            </button>
+          )}
+
+          {/* Recording status */}
+          {!paused && (
+            <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive pulse-recording" />
-              <span className="text-xs font-medium text-destructive">LIVE</span>
+              <span className="text-xs font-semibold text-destructive tracking-wide">LIVE</span>
             </div>
           )}
-          <span className={`font-mono text-sm ${recording ? "text-destructive" : "text-muted-foreground"}`}>
+
+          {/* Timer */}
+          <span className={`font-mono text-sm tabular-nums ${!paused ? "text-destructive" : "text-muted-foreground"}`}>
             <Clock className="w-3.5 h-3.5 inline mr-1" />{formatTime(timer)}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => setRecording(!recording)} className="text-foreground">
-            {recording ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+
+          {/* Controls */}
+          <Button variant="ghost" size="sm" onClick={togglePause} className="text-foreground gap-1.5">
+            {paused ? <><Play className="w-4 h-4" /> Resume</> : <><Pause className="w-4 h-4" /> Pause</>}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowScrubDialog(true)} className="text-destructive gap-1">
-            <Shield className="w-4 h-4" />Scrub
+
+          <Button variant="ghost" size="sm" onClick={() => setShowScrubDialog(true)} className="text-destructive gap-1.5">
+            <Shield className="w-4 h-4" />Privacy: Scrub Detail
           </Button>
-          <Button size="sm" onClick={() => setShowEndDialog(true)} className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-1">
-            <Square className="w-3 h-3" />End Session
+
+          <Button size="sm" onClick={() => setShowEndDialog(true)} className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-1.5">
+            <Square className="w-3.5 h-3.5" />End Session
           </Button>
         </div>
       </div>
 
-      {/* Three Columns */}
+      {/* Alert dropdown */}
+      {showAlerts && (
+        <div className="absolute top-14 right-48 z-50 w-80 glass-card border border-warning/30 shadow-lg">
+          <div className="p-3 border-b border-border flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Alerts</span>
+            <button onClick={() => setShowAlerts(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="p-3 space-y-2">
+            {alerts.map(a => (
+              <div key={a.id} className={`p-3 rounded-lg border ${a.severity === "critical" ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className={`w-3.5 h-3.5 ${a.severity === "critical" ? "text-destructive" : "text-warning"}`} />
+                  <span className="text-[10px] text-muted-foreground">{a.timestamp}</span>
+                </div>
+                <p className="text-xs text-foreground">{a.message}</p>
+                {!a.read && (
+                  <Button size="sm" variant="ghost" className="text-xs text-primary mt-1.5 h-6 px-2"
+                    onClick={() => setAlerts(prev => prev.map(al => al.id === a.id ? { ...al, read: true } : al))}>
+                    Mark as reviewed
+                  </Button>
+                )}
+                {alertStyle.includes("phone_vibration") && (
+                  <p className="text-[10px] text-muted-foreground mt-1 italic">📳 Phone would vibrate now</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Three Columns ───────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left - Transcript */}
+        {/* Left — Transcript (40%) */}
         <div className="w-[40%] border-r border-border flex flex-col">
           <div className="p-3 border-b border-border flex items-center gap-2">
             <Mic className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground">Live Transcript</span>
-            {recording && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
+            {!paused && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
+            {paused && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">PAUSED</span>}
           </div>
-          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {visibleLines === 0 && (
-              <div className="text-center py-12">
-                <Mic className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-30" />
-                <p className="text-sm text-muted-foreground">Listening...</p>
+              <div className="text-center py-16">
+                <Mic className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
+                <p className="text-sm text-muted-foreground">Press Start Session to begin transcribing</p>
               </div>
             )}
             {demoTranscript.slice(0, visibleLines).map((line, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${line.speaker === "Professional" ? "text-primary" : "text-accent"}`}>{line.speaker}</span>
-                  <span className="status-badge bg-secondary text-muted-foreground text-[9px]">{line.lang}</span>
+                  <span className={`text-xs font-semibold ${line.speaker === "Professional" ? "text-primary" : line.speaker === "Client" ? "text-accent" : "text-warning"}`}>
+                    {line.speaker}
+                  </span>
+                  <span className="status-badge bg-secondary text-muted-foreground text-[9px] px-1.5 py-0">[{line.lang}]</span>
                   <span className="text-[10px] text-muted-foreground">{line.time}</span>
+                  {line.lowConfidence && <AlertTriangle className="w-3 h-3 text-warning" />}
                 </div>
-                <p className="text-sm text-foreground leading-relaxed">{line.text}</p>
+                <p className={`text-sm text-foreground leading-relaxed ${line.lowConfidence ? "underline decoration-warning decoration-wavy decoration-1" : ""}`}>
+                  {line.text}
+                </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Middle - AI Suggestions */}
+        {/* Middle — AI Suggestions (35%) */}
         <div className="w-[35%] border-r border-border flex flex-col">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">AI Suggestions</span>
+              <span className="text-[10px] text-muted-foreground">Click to select</span>
             </div>
-            {warnings > 0 && (
-              <span className="status-badge bg-warning/20 text-warning text-[10px]">
-                <AlertTriangle className="w-3 h-3 mr-1" />{warnings} warning
+            {unreadAlerts > 0 && (
+              <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1">
+                <AlertTriangle className="w-3 h-3" />{unreadAlerts}
               </span>
             )}
           </div>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {demoSuggestions.map((s, i) => (
-              <div
-                key={i}
-                onClick={() => toggleItem(i)}
-                className={`suggestion-card ${selectedItems.includes(i) ? "suggestion-card-selected" : ""} ${s.category === "Warning" ? "cursor-default" : ""}`}
-              >
-                <div className="flex items-start justify-between">
-                  <span className={`status-badge ${categoryColors[s.category] || "bg-secondary text-muted-foreground"} text-[10px]`}>{s.category}</span>
-                  {selectedItems.includes(i) && <Check className="w-4 h-4 text-accent" />}
-                  {s.confidence && <span className="text-[10px] text-muted-foreground">{s.confidence}</span>}
+            {/* Warnings first */}
+            {demoSuggestions.filter(s => s.category === "Warning").map((s, i) => {
+              const origIdx = demoSuggestions.indexOf(s);
+              return (
+                <div key={origIdx} className="glass-card p-4 border-destructive/30 bg-destructive/5">
+                  <div className="flex items-center gap-2">
+                    <span className="status-badge bg-destructive/20 text-destructive text-[10px]">⚠ Warning</span>
+                  </div>
+                  <p className="text-sm font-medium text-foreground mt-2">{s.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{s.detail}</p>
                 </div>
-                <p className="text-sm font-medium text-foreground mt-2">{s.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{s.detail}</p>
-              </div>
-            ))}
+              );
+            })}
+
+            {/* Other suggestions */}
+            {demoSuggestions.filter(s => s.category !== "Warning").map((s, i) => {
+              const origIdx = demoSuggestions.indexOf(s);
+              const isSelected = selectedItems.includes(origIdx);
+              return (
+                <div key={origIdx} onClick={() => toggleItem(origIdx)}
+                  className={`suggestion-card ${isSelected ? "suggestion-card-selected" : ""}`}>
+                  <div className="flex items-start justify-between">
+                    <span className={`status-badge ${categoryColors[s.category] || "bg-secondary text-muted-foreground"} text-[10px]`}>{s.category}</span>
+                    <div className="flex items-center gap-2">
+                      {s.confidence && <span className="text-[10px] text-muted-foreground italic">{s.confidence}</span>}
+                      {isSelected && <Check className="w-4 h-4 text-accent" />}
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium text-foreground mt-2">{s.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{s.detail}</p>
+                </div>
+              );
+            })}
           </div>
+
           {/* Generation Basket */}
-          <div className="border-t border-border p-3">
-            <div className="flex items-center justify-between mb-2">
+          <div className="border-t border-border p-3 space-y-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground">{selectedItems.length} items selected</span>
             </div>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {selectedItems.map(i => (
-                <span key={i} className="status-badge bg-accent/20 text-accent text-[10px] gap-1">
-                  {demoSuggestions[i].title.slice(0, 20)}...
-                  <X className="w-3 h-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleItem(i); }} />
-                </span>
-              ))}
+            {selectedItems.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {selectedItems.map(i => (
+                  <span key={i} className="status-badge bg-accent/20 text-accent text-[10px] gap-1">
+                    {demoSuggestions[i].title.length > 25 ? demoSuggestions[i].title.slice(0, 25) + "…" : demoSuggestions[i].title}
+                    <button onClick={(e) => { e.stopPropagation(); toggleItem(i); }}><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input value={customBasketItem} onChange={e => setCustomBasketItem(e.target.value)}
+                placeholder="Add custom item..."
+                onKeyDown={e => { if (e.key === "Enter") addCustomToBasket(); }}
+                className="bg-secondary border-border text-foreground placeholder:text-muted-foreground text-xs h-8" />
+              <Button size="sm" variant="outline" onClick={addCustomToBasket} className="border-border text-foreground h-8 px-2">
+                <Plus className="w-3 h-3" />
+              </Button>
             </div>
-            <Button size="sm" disabled className="w-full text-xs" variant="outline">Generate Documents (after session)</Button>
+            <Button size="sm" disabled className="w-full text-xs" variant="outline">
+              Generate Documents (after session)
+            </Button>
           </div>
         </div>
 
-        {/* Right - Notes */}
+        {/* Right — Manual Notes (25%) */}
         <div className="w-[25%] flex flex-col">
-          <div className="p-3 border-b border-border">
+          <div className="p-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">My Notes</span>
+          </div>
+          {/* Toolbar */}
+          <div className="px-3 py-1.5 border-b border-border flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("bold")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
+              <Bold className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("bullet")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
+              <List className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("highlight")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
+              <Highlighter className="w-3.5 h-3.5" />
+            </Button>
           </div>
           <div className="flex-1 p-3">
             <Textarea
               value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Type your notes here... timestamps auto-added on new paragraphs"
-              className="h-full resize-none bg-transparent border-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-0 text-sm"
+              onChange={e => handleNotesChange(e.target.value)}
+              placeholder="Type your notes here...&#10;&#10;Press Enter twice for auto-timestamp"
+              className="h-full resize-none bg-transparent border-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-0 text-sm font-mono leading-relaxed"
             />
           </div>
-          <div className="p-2 border-t border-border text-right">
+          <div className="px-3 py-1.5 border-t border-border text-right">
             <span className="text-[10px] text-muted-foreground">{notes.length} chars</span>
           </div>
         </div>
       </div>
 
-      {/* End Session Dialog */}
+      {/* ─── End Session Dialog ──────────────────────── */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <DialogContent className="bg-surface border-border">
           <DialogHeader><DialogTitle className="text-foreground font-heading">End this session?</DialogTitle></DialogHeader>
@@ -230,18 +445,34 @@ export default function LiveSession() {
         </DialogContent>
       </Dialog>
 
-      {/* Scrub Dialog */}
+      {/* ─── Privacy Scrub Dialog ────────────────────── */}
       <Dialog open={showScrubDialog} onOpenChange={setShowScrubDialog}>
         <DialogContent className="bg-surface border-border">
-          <DialogHeader><DialogTitle className="text-foreground font-heading">Privacy: Scrub Detail</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Describe the detail to permanently remove:</p>
-          <Input value={scrubText} onChange={e => setScrubText(e.target.value)} className="bg-secondary border-border text-foreground" />
-          <div className="flex gap-3 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowScrubDialog(false)} className="border-border text-foreground">Cancel</Button>
-            <Button onClick={() => { toast.success("Detail scrubbed from record"); setShowScrubDialog(false); setScrubText(""); }} className="bg-destructive text-destructive-foreground">Confirm Scrub</Button>
+          <DialogHeader><DialogTitle className="text-foreground font-heading flex items-center gap-2">
+            <Shield className="w-5 h-5 text-destructive" /> Privacy: Scrub Detail
+          </DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Describe the detail to permanently remove from this session record:</p>
+          <Input value={scrubText} onChange={e => setScrubText(e.target.value)}
+            placeholder="e.g. Patient's home address mentioned at 00:01:30"
+            className="bg-secondary border-border text-foreground placeholder:text-muted-foreground" />
+          <p className="text-[10px] text-muted-foreground">This action is irreversible. The scrubbed content will not be recorded.</p>
+          <div className="flex gap-3 justify-end mt-2">
+            <Button variant="outline" onClick={() => { setShowScrubDialog(false); setScrubText(""); }} className="border-border text-foreground">Cancel</Button>
+            <Button onClick={handleScrub} disabled={!scrubText.trim()} className="bg-destructive text-destructive-foreground gap-1.5">
+              <Shield className="w-4 h-4" />Confirm Scrub
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Small plus icon used in basket
+function Plus({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
   );
 }
