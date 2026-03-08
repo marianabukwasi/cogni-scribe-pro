@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useDeepgramTranscription, TranscriptLine } from "@/hooks/useDeepgramTranscription";
 import { useAISuggestions, AISuggestion } from "@/hooks/useAISuggestions";
+import { useAlertSystem, SessionAlert } from "@/hooks/useAlertSystem";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus, RefreshCw, FileText, Archive, Timer, WifiOff, Loader2
+  Plus, RefreshCw, FileText, Archive, Timer, WifiOff, Loader2, Wifi, Download
 } from "lucide-react";
 import { format } from "date-fns";
 
