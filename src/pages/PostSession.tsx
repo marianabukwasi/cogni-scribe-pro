@@ -236,6 +236,7 @@ export default function PostSession() {
   const [selectedForward, setSelectedForward] = useState<number[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [flagStatuses, setFlagStatuses] = useState<Record<number, string>>({});
+  const [sessionAlerts, setSessionAlerts] = useState<any[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [notes, setNotes] = useState("");
   const [customForwardText, setCustomForwardText] = useState("");
@@ -272,6 +273,7 @@ export default function PostSession() {
       setSession(data);
       if (data?.manual_notes) setNotes(data.manual_notes);
       if (data?.document_output_language) setDocLang(data.document_output_language);
+      if (Array.isArray(data?.points_to_note)) setSessionAlerts(data.points_to_note);
     });
   }, [id]);
 
@@ -674,6 +676,31 @@ export default function PostSession() {
                     <p className="text-xs text-muted-foreground mt-1">This does not replace professional judgment.</p>
                   </div>
                 )}
+                {/* Alert log from session */}
+                {!flagsLoading && sessionAlerts.length > 0 && (
+                  <div className="glass-card p-5 mb-4 border-warning/20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShieldAlert className="w-4 h-4 text-warning" />
+                      <h3 className="text-sm font-semibold text-foreground">Alerts Triggered During Session</h3>
+                      <span className="status-badge bg-warning/20 text-warning text-[10px]">{sessionAlerts.length}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {sessionAlerts.map((a: any, i: number) => (
+                        <div key={i} className={`flex items-start gap-3 p-2.5 rounded-lg ${a.severity === "critical" ? "bg-destructive/5 border border-destructive/20" : "bg-warning/5 border border-warning/20"}`}>
+                          <span className={`text-[10px] font-mono shrink-0 mt-0.5 ${a.severity === "critical" ? "text-destructive" : "text-warning"}`}>{a.timestamp}</span>
+                          <div className="min-w-0">
+                            <span className={`status-badge text-[9px] mb-1 ${a.severity === "critical" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>
+                              {a.severity === "critical" ? "⚠ CRITICAL" : "IMPORTANT"}
+                            </span>
+                            <p className="text-xs text-foreground mt-1">{a.message}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Triggered at {new Date(a.triggeredAt).toLocaleTimeString()}{a.read ? " · Acknowledged" : ""}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Group by severity */}
                 {(["critical", "safeguarding", "important", "info"] as const).map(sev => {
                   const items = flags.map((f, i) => ({ ...f, idx: i })).filter(f => f.severity === sev);
