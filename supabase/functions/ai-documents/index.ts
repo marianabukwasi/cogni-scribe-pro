@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,24 @@ function cleanJson(content: string): string {
   return content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 }
 
+async function fetchKnowledgeBaseContext(professionalId: string): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data } = await supabase
+      .from('knowledge_base_items')
+      .select('title, content, category, tags')
+      .eq('professional_id', professionalId)
+      .eq('status', 'ready')
+      .not('content', 'is', null)
+      .limit(10);
+    if (!data || data.length === 0) return '';
+    return '\n\nProfessional\'s Knowledge Base (use to match their style and protocols):\n' +
+      data.map(item => `[${item.category}] ${item.title}: ${(item.content || '').slice(0, 500)}`).join('\n');
+  } catch { return ''; }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -32,7 +51,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
 
-    const { docType, format, language, prescriptionCountry, transcript, selectedItems, clientDetails, professionalName, profession, specialty } = await req.json();
+    const { docType, format, language, prescriptionCountry, transcript, selectedItems, clientDetails, professionalName, profession, specialty, professionalId } = await req.json();
 
     let systemPrompt = docPrompts[docType] || docPrompts.session_summary;
     systemPrompt = systemPrompt
@@ -41,10 +60,13 @@ serve(async (req) => {
       .replace('{prescriptionCountry}', prescriptionCountry || 'EU');
     systemPrompt += ' Return ONLY valid JSON. No markdown.';
 
+    // Fetch KB context
+    const kbContext = professionalId ? await fetchKnowledgeBaseContext(professionalId) : '';
+
     const userMessage = `Professional: ${professionalName || 'Professional'} (${profession || 'Professional'}, ${specialty || 'General'})
 Selected items/findings: ${selectedItems ? JSON.stringify(selectedItems) : 'None'}
 ${clientDetails ? `Client details: ${JSON.stringify(clientDetails)}` : ''}
-Transcript: ${transcript || 'No transcript available.'}`;
+Transcript: ${transcript || 'No transcript available.'}${kbContext}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,24 @@ const systemPrompts: Record<string, string> = {
   generic: `You are a professional AI assistant. Analyse the transcript and return JSON with: assessments (array of {name, detail, confidence: "high"/"medium"/"low"}), actions (array of {name, detail}), alternatives (array of {name, detail}), warnings (string array), nextSteps (array of {name, detail}). Return ONLY valid JSON. No markdown.`,
 };
 
+async function fetchKnowledgeBaseContext(professionalId: string): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data } = await supabase
+      .from('knowledge_base_items')
+      .select('title, content, category, tags')
+      .eq('professional_id', professionalId)
+      .eq('status', 'ready')
+      .not('content', 'is', null)
+      .limit(10);
+    if (!data || data.length === 0) return '';
+    return '\n\nProfessional\'s Knowledge Base (use to inform suggestions):\n' +
+      data.map(item => `[${item.category}] ${item.title}: ${(item.content || '').slice(0, 500)}`).join('\n');
+  } catch { return ''; }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -20,16 +39,19 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
 
-    const { profession, specialty, country, transcript, professionKey } = await req.json();
+    const { profession, specialty, country, transcript, professionKey, professionalId } = await req.json();
 
     const pk = professionKey || 'generic';
     const systemPrompt = systemPrompts[pk] || systemPrompts.generic;
+
+    // Fetch KB context if professionalId provided
+    const kbContext = professionalId ? await fetchKnowledgeBaseContext(professionalId) : '';
 
     const userMessage = `Professional: ${profession || 'Professional'}, Specialty: ${specialty || 'General'}, Country: ${country || 'Not specified'}
 
 Current session transcript so far:
 ${transcript || 'No transcript yet.'}
-
+${kbContext}
 Analyse and return suggestions.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format, addWeeks } from "date-fns";
 import { ArrowLeft, Download, FileText, Mail, Send, Eye, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
+import { generatePilotAgreementPDF } from "@/lib/pdfExport";
 
 const durationOptions = [
   { v: "4", l: "4 weeks" },
@@ -57,25 +58,10 @@ export default function PilotAgreement() {
   const isFormValid = yourName && partnerOrg && partnerContact && startDate && pilotUsers;
 
   const handleDownloadPDF = () => {
-    if (!previewRef.current) return;
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) { toast.error("Please allow pop-ups to download"); return; }
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Pilot Agreement — Kloer.ai</title><style>
-      body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1a1a1a;line-height:1.6}
-      h1{font-size:22px;text-align:center;margin-bottom:4px}
-      h2{font-size:14px;text-align:center;color:#666;margin-top:0;font-weight:normal}
-      .parties{margin:24px 0}
-      .terms ol{padding-left:20px}
-      .terms li{margin-bottom:8px}
-      .sig-block{display:flex;justify-content:space-between;margin-top:48px}
-      .sig-col{width:45%}
-      .sig-line{border-bottom:1px solid #333;margin-top:48px;margin-bottom:4px}
-      .sig-label{font-size:12px;color:#666}
-      .date{text-align:center;margin-top:32px;color:#666;font-size:13px}
-      @media print{body{margin:20px}}
-    </style></head><body>${previewRef.current.innerHTML}</body></html>`);
-    printWindow.document.close();
-    printWindow.print();
+    generatePilotAgreementPDF({
+      yourName, yourOrg, partnerContact, partnerOrg,
+      startDate: formattedStart, endDate, weeks, pilotUsers, useCase, specialConditions,
+    });
   };
 
   const handleSendEmail = () => {
@@ -252,7 +238,7 @@ export default function PilotAgreement() {
                 <Button onClick={() => { toast.success("DOCX download started"); }} variant="outline" className="gap-2 border-border text-foreground">
                   <FileText className="w-4 h-4" />Download DOCX
                 </Button>
-                <Button onClick={() => { if (previewRef.current) { const w = window.open("", "_blank"); if (w) { w.document.write(previewRef.current.innerHTML); w.document.close(); w.print(); } } }} variant="outline" className="gap-2 border-border text-foreground">
+                <Button onClick={handleDownloadPDF} variant="outline" className="gap-2 border-border text-foreground">
                   <Printer className="w-4 h-4" />Print
                 </Button>
               </div>

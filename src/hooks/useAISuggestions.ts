@@ -116,7 +116,8 @@ export function useAISuggestions() {
     profession: string,
     specialty?: string,
     country?: string,
-    force = false
+    force = false,
+    professionalId?: string
   ) => {
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime.current;
@@ -134,7 +135,7 @@ export function useAISuggestions() {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("ai-suggestions", {
-        body: { transcript, professionKey, profession, specialty, country },
+        body: { transcript, professionKey, profession, specialty, country, professionalId },
       });
 
       if (fnError) throw new Error(fnError.message);

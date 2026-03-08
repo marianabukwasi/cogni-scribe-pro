@@ -16,6 +16,7 @@ import {
   Check, Download, FileText, Printer, Edit, Clock, Plus, Lock,
   ChevronDown, ChevronRight, Globe, ArrowLeft, Shield, AlertTriangle
 } from "lucide-react";
+import { generateDocumentPDF, generateAuditTrailPDF, generatePrescriptionPDF, generateReferralPDF } from "@/lib/pdfExport";
 
 // ─── Types ──────────────────────────────────────────────
 type ProfKey = "medical" | "legal" | "ngo" | "therapy" | "generic";
@@ -534,8 +535,8 @@ export default function DocumentReview() {
                   <Check className="w-4 h-4" />Verify and Approve
                 </Button>
               ) : (
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Download className="w-4 h-4" />Download PDF</Button>
+              <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => generateDocumentPDF({ formatLabel: getDemoFormatLabel(pk), profName, profOrg, profReg, clientName, sessionDate, sections: sections.map(s => ({ title: s.title, content: s.content })) })}><Download className="w-4 h-4" />Download PDF</Button>
                   <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Download className="w-4 h-4" />Download DOCX</Button>
                 </div>
               )}
@@ -572,7 +573,7 @@ export default function DocumentReview() {
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" className="w-full mt-6 border-border text-muted-foreground text-xs gap-1">
+            <Button variant="outline" size="sm" className="w-full mt-6 border-border text-muted-foreground text-xs gap-1" onClick={() => generateAuditTrailPDF({ entries: auditTrail, documentTitle: getDemoFormatLabel(pk), sessionDate })}>
               <Download className="w-3 h-3" />Export Audit Trail
             </Button>
           </div>
@@ -692,8 +693,8 @@ export default function DocumentReview() {
               </Button>
             ) : (
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Download className="w-4 h-4" />PDF</Button>
-                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Printer className="w-4 h-4" />Print</Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => generatePrescriptionPDF({ profName, profOrg, profReg, clientName, sessionDate, countryFormat: cc.label, items: rxItems })}><Download className="w-4 h-4" />PDF</Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => { generatePrescriptionPDF({ profName, profOrg, profReg, clientName, sessionDate, countryFormat: cc.label, items: rxItems }); }}><Printer className="w-4 h-4" />Print</Button>
               </div>
             )}
           </div>
@@ -806,8 +807,8 @@ export default function DocumentReview() {
                     </Button>
                   ) : (
                     <div className="flex gap-3">
-                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Download className="w-4 h-4" />PDF</Button>
-                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground"><Printer className="w-4 h-4" />Print</Button>
+                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => currentRef && generateReferralPDF({ to: currentRef.to, specialty: currentRef.specialty, body: currentRef.body, profName, profOrg, clientName, sessionDate, language: currentRef.language })}><Download className="w-4 h-4" />PDF</Button>
+                      <Button variant="outline" className="flex-1 gap-2 border-border text-foreground" onClick={() => currentRef && generateReferralPDF({ to: currentRef.to, specialty: currentRef.specialty, body: currentRef.body, profName, profOrg, clientName, sessionDate, language: currentRef.language })}><Printer className="w-4 h-4" />Print</Button>
                     </div>
                   )}
                 </div>
