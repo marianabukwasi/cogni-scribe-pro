@@ -37,6 +37,7 @@ export default function Onboarding() {
   const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
+  const [profession, setProfession] = useState(profile?.profession || "medical_doctor");
   const [specialty, setSpecialty] = useState("");
   const [organisation, setOrganisation] = useState("");
   const [country, setCountry] = useState("Luxembourg");
