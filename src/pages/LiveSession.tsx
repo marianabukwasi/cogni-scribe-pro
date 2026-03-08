@@ -201,7 +201,6 @@ export default function LiveSession() {
   const [purgeTimer, setPurgeTimer] = useState((profile?.auto_purge_minutes || 10) * 60);
   const [decisionMade, setDecisionMade] = useState(false);
   const [liveStarted, setLiveStarted] = useState(false);
-  const [liveStarted, setLiveStarted] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const lastNotesLength = useRef(0);
