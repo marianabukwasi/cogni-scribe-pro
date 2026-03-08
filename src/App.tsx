@@ -23,6 +23,11 @@ import SettingsPage from "./pages/SettingsPage";
 import IntakeTemplates from "./pages/IntakeTemplates";
 import IntakeForm from "./pages/IntakeForm";
 import NotFound from "./pages/NotFound";
+import Pricing from "./pages/Pricing";
+import Billing from "./pages/Billing";
+import NGOApplication from "./pages/NGOApplication";
+import NGOIntake from "./pages/NGOIntake";
+import GrantReporting from "./pages/GrantReporting";
 
 const queryClient = new QueryClient();
 
