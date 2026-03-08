@@ -37,11 +37,11 @@ export default function SignIn() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-1 mb-2">
-            <span className="font-heading text-4xl text-foreground">kloer</span>
-            <span className="w-3 h-3 rounded-full bg-primary inline-block mb-1" />
-            <span className="font-heading text-4xl text-foreground">ai</span>
-          </div>
+          <Link to="/" className="inline-flex items-center justify-center gap-0 mb-2">
+            <span className="font-heading text-4xl text-foreground font-bold">kloer</span>
+            <span className="w-3 h-3 rounded-full bg-primary inline-block mx-0.5" />
+            <span className="font-heading text-4xl text-primary font-bold">ai</span>
+          </Link>
           <p className="text-muted-foreground text-sm">Sign in to your account</p>
         </div>
 
