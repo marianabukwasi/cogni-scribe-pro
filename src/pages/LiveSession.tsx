@@ -837,8 +837,8 @@ export default function LiveSession() {
           </div>
         </div>
 
-        {/* Right — Manual Notes (25%) */}
-        <div className="w-[25%] flex flex-col">
+        {/* Right — Manual Notes */}
+        <div className={`${isMobile ? (mobileTab === "notes" ? "w-full" : "hidden") : "w-[25%]"} flex flex-col`}>
           <div className="p-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">My Notes</span>
           </div>
