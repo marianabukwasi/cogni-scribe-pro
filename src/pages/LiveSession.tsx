@@ -166,6 +166,8 @@ export default function LiveSession() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
+  const deepgram = useDeepgramTranscription();
 
   const pk = getProfessionKey(profile?.profession);
   const sections = sectionTitles[pk];
@@ -190,9 +192,15 @@ export default function LiveSession() {
   const [selectedRetention, setSelectedRetention] = useState<string | null>(null);
   const [purgeTimer, setPurgeTimer] = useState((profile?.auto_purge_minutes || 10) * 60);
   const [decisionMade, setDecisionMade] = useState(false);
+  const [liveStarted, setLiveStarted] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const lastNotesLength = useRef(0);
+
+  // The current transcript lines — either from Deepgram or demo simulation
+  const transcriptLines: (TranscriptLine & { isInterim?: boolean })[] = isDemo
+    ? demoTranscript.slice(0, visibleLines)
+    : deepgram.lines;
 
   useEffect(() => {
     if (!id) return;
@@ -209,7 +217,9 @@ export default function LiveSession() {
     return () => clearInterval(iv);
   }, [paused, sessionEnded]);
 
+  // Demo mode: simulate transcript lines appearing
   useEffect(() => {
+    if (!isDemo) return;
     if (paused || sessionEnded || visibleLines >= demoTranscript.length) return;
     const t = setTimeout(() => {
       setVisibleLines(v => v + 1);
@@ -218,7 +228,36 @@ export default function LiveSession() {
       }, 50);
     }, 2500 + Math.random() * 2500);
     return () => clearTimeout(t);
-  }, [visibleLines, paused, sessionEnded]);
+  }, [visibleLines, paused, sessionEnded, isDemo]);
+
+  // Live mode: auto-scroll when new lines arrive
+  useEffect(() => {
+    if (isDemo) return;
+    setTimeout(() => {
+      if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }, 50);
+  }, [deepgram.lines.length, isDemo]);
+
+  // Start live transcription (non-demo)
+  const startLiveTranscription = async () => {
+    if (isDemo) return;
+    const ok = await deepgram.connect(session?.session_language || "multi");
+    if (ok) {
+      setLiveStarted(true);
+      toast.success("Live transcription started");
+    } else if (deepgram.micPermission === "denied") {
+      toast.error("Microphone access is required for live transcription");
+    } else {
+      toast.error("Could not start transcription — falling back to demo mode");
+    }
+  };
+
+  // Handle pause/resume for live mode
+  useEffect(() => {
+    if (isDemo || !liveStarted) return;
+    if (paused) deepgram.pause();
+    else deepgram.resume();
+  }, [paused, isDemo, liveStarted]);
 
   useEffect(() => {
     if (visibleLines >= 10 && alerts.length === 0) setAlerts([...demoAlerts]);
