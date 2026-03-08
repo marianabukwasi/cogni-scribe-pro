@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
+import { useAIChat } from "@/hooks/useAIChat";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -218,7 +221,9 @@ const chatResponses: Record<string, string> = {
 export default function PostSession() {
   const { id } = useParams();
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const navigate = useNavigate();
+  const aiChat = useAIChat();
 
   const pk = getProfKey(profile?.profession);
 
@@ -226,10 +231,10 @@ export default function PostSession() {
   const [summaryFields, setSummaryFields] = useState<Record<string, string>>({});
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [forwardItems, setForwardItems] = useState<ForwardItem[]>([]);
   const [selectedForward, setSelectedForward] = useState<number[]>([]);
+  const [flags, setFlags] = useState<Flag[]>([]);
   const [flagStatuses, setFlagStatuses] = useState<Record<number, string>>({});
   const [regenerating, setRegenerating] = useState(false);
   const [notes, setNotes] = useState("");
@@ -240,12 +245,27 @@ export default function PostSession() {
   const [docLang, setDocLang] = useState("en");
   const [prescriptionCountry, setPrescriptionCountry] = useState("luxembourg");
   const [generating, setGenerating] = useState(false);
+  
+  // AI loading states
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [flagsLoading, setFlagsLoading] = useState(false);
+  const [forwardLoading, setForwardLoading] = useState(false);
+  const [summaryDone, setSummaryDone] = useState(false);
+  const [flagsDone, setFlagsDone] = useState(false);
+  const [forwardDone, setForwardDone] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const flags = getDemoFlags(pk);
   const suggestions = chatSuggestions[pk];
   const profDocTypes = docTypes[pk];
 
+  // Helper to get transcript text from session
+  const getTranscriptText = useCallback(() => {
+    if (!session?.transcript) return "";
+    const transcript = session.transcript as any[];
+    return transcript.map((l: any) => `[${l.time}] ${l.speaker} (${l.lang}): ${l.text}`).join("\n");
+  }, [session]);
+
+  // Fetch session data
   useEffect(() => {
     if (!id) return;
     supabase.from("sessions").select("*").eq("id", id).single().then(({ data }) => {
@@ -255,22 +275,120 @@ export default function PostSession() {
     });
   }, [id]);
 
+  // Generate AI content or load demo data when session loads
   useEffect(() => {
-    setSummaryFields(demoSummaries[pk]);
-    const items = getDemoForwardItems(pk);
-    setForwardItems(items);
-    setSelectedForward(items.map((_, i) => i));
-    // Pre-select all doc types
+    if (!session) return;
+    
+    // Pre-select doc types and formats
     setSelectedDocs(docTypes[pk].map(d => d.key));
-    // Set default formats
     const formats: Record<string, string> = {};
     docTypes[pk].forEach(d => { if (d.defaultFormat) formats[d.key] = d.defaultFormat; });
     setDocFormats(formats);
-  }, [pk]);
+
+    if (isDemo) {
+      // Demo mode: use static data
+      setSummaryFields(demoSummaries[pk]);
+      setFlags(getDemoFlags(pk));
+      const items = getDemoForwardItems(pk);
+      setForwardItems(items);
+      setSelectedForward(items.map((_, i) => i));
+      setSummaryDone(true);
+      setFlagsDone(true);
+      setForwardDone(true);
+      return;
+    }
+
+    // Real AI generation — 3 parallel calls
+    const transcript = getTranscriptText();
+    if (!transcript) {
+      // No transcript, fall back to demo
+      setSummaryFields(demoSummaries[pk]);
+      setFlags(getDemoFlags(pk));
+      const items = getDemoForwardItems(pk);
+      setForwardItems(items);
+      setSelectedForward(items.map((_, i) => i));
+      setSummaryDone(true);
+      setFlagsDone(true);
+      setForwardDone(true);
+      return;
+    }
+
+    const selectedItems = session.selected_items;
+    const contextBody = {
+      professionKey: pk,
+      profession: profile?.profession || "professional",
+      specialty: profile?.specialty || undefined,
+      country: profile?.country_of_practice || undefined,
+      transcript,
+      selectedItems,
+    };
+
+    // Summary
+    setSummaryLoading(true);
+    supabase.functions.invoke("ai-post-session", {
+      body: { ...contextBody, type: "summary", summaryFields: Object.keys(demoSummaries[pk]) },
+    }).then(({ data, error }) => {
+      setSummaryLoading(false);
+      setSummaryDone(true);
+      if (error || data?.error) {
+        console.error("Summary error:", error || data?.error);
+        setSummaryFields(demoSummaries[pk]);
+        toast.error("AI summary generation failed, showing demo data");
+      } else if (data?.result) {
+        setSummaryFields(data.result);
+      } else {
+        setSummaryFields(demoSummaries[pk]);
+      }
+    });
+
+    // Flags
+    setFlagsLoading(true);
+    supabase.functions.invoke("ai-post-session", {
+      body: { ...contextBody, type: "flags" },
+    }).then(({ data, error }) => {
+      setFlagsLoading(false);
+      setFlagsDone(true);
+      if (error || data?.error) {
+        console.error("Flags error:", error || data?.error);
+        setFlags(getDemoFlags(pk));
+      } else if (Array.isArray(data?.result)) {
+        setFlags(data.result);
+      } else {
+        setFlags(getDemoFlags(pk));
+      }
+    });
+
+    // Forward
+    setForwardLoading(true);
+    supabase.functions.invoke("ai-post-session", {
+      body: { ...contextBody, type: "forward" },
+    }).then(({ data, error }) => {
+      setForwardLoading(false);
+      setForwardDone(true);
+      if (error || data?.error) {
+        console.error("Forward error:", error || data?.error);
+        const items = getDemoForwardItems(pk);
+        setForwardItems(items);
+        setSelectedForward(items.map((_, i) => i));
+      } else if (Array.isArray(data?.result)) {
+        const items: ForwardItem[] = data.result.map((r: any) => ({
+          category: r.category || "Action",
+          title: r.title || "",
+          color: r.color || "bg-secondary text-muted-foreground",
+        }));
+        setForwardItems(items);
+        setSelectedForward(items.map((_: any, i: number) => i));
+      } else {
+        const items = getDemoForwardItems(pk);
+        setForwardItems(items);
+        setSelectedForward(items.map((_, i) => i));
+      }
+    });
+  }, [session, pk, isDemo]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+  }, [aiChat.messages]);
 
   // ─── Summary Editing ──────────────────────────────────
   const startEdit = (field: string) => { setEditingField(field); setEditValue(summaryFields[field] || ""); };
@@ -283,9 +401,25 @@ export default function PostSession() {
   };
   const cancelEdit = () => { setEditingField(null); setEditValue(""); };
 
-  const handleRegenerate = () => {
+  const handleRegenerate = async () => {
     setRegenerating(true);
-    setTimeout(() => { setRegenerating(false); toast.success("Summary regenerated"); }, 2000);
+    if (!isDemo && session?.transcript) {
+      const { data, error } = await supabase.functions.invoke("ai-post-session", {
+        body: {
+          type: "summary",
+          professionKey: pk,
+          profession: profile?.profession,
+          specialty: profile?.specialty,
+          country: profile?.country_of_practice,
+          transcript: getTranscriptText(),
+          summaryFields: Object.keys(summaryFields),
+        },
+      });
+      if (!error && data?.result) setSummaryFields(data.result);
+      else toast.error("Regeneration failed");
+    }
+    setRegenerating(false);
+    toast.success("Summary regenerated");
   };
 
   // ─── Forward Items ────────────────────────────────────
@@ -308,19 +442,26 @@ export default function PostSession() {
 
   // ─── Chat ─────────────────────────────────────────────
   const handleChat = (msg: string) => {
-    setChatMessages(prev => [...prev, { role: "user", content: msg }]);
     setChatInput("");
-    // Show thinking indicator
-    setChatMessages(prev => [...prev, { role: "assistant", content: "", thinking: true }]);
-    setTimeout(() => {
-      setChatMessages(prev => {
-        const withoutThinking = prev.filter(m => !m.thinking);
-        return [...withoutThinking, {
+    if (isDemo) {
+      // Demo mode: use static responses
+      aiChat.setMessages(prev => [...prev, { role: "user", content: msg }]);
+      setTimeout(() => {
+        aiChat.setMessages(prev => [...prev, {
           role: "assistant",
-          content: chatResponses[msg] || "I've analyzed the session context. Based on the transcript, clinical findings, and your knowledge base, here are my recommendations for this case. Would you like me to elaborate on any specific area or draft a document?"
-        }];
-      });
-    }, 1500);
+          content: chatResponses[msg] || "I've analyzed the session context. Based on the transcript, clinical findings, and your knowledge base, here are my recommendations for this case."
+        }]);
+      }, 1500);
+      return;
+    }
+    // Real AI chat with streaming
+    aiChat.sendMessage(msg, {
+      profession: profile?.profession,
+      specialty: profile?.specialty,
+      country: profile?.country_of_practice,
+      transcript: getTranscriptText(),
+      selectedItems: session?.selected_items,
+    });
   };
 
   const addChatToNotes = (content: string) => {
@@ -339,14 +480,62 @@ export default function PostSession() {
   // ─── Document Generation ──────────────────────────────
   const toggleDoc = (key: string) => setSelectedDocs(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      setShowGenerateDialog(false);
-      toast.success(`${selectedDocs.length} documents generated`);
-      navigate(`/session/${id}/documents`);
-    }, 3000);
+    
+    if (!isDemo && session?.transcript) {
+      // Generate documents via AI in parallel
+      const transcript = getTranscriptText();
+      const selectedBasketItems = selectedForward.map(i => forwardItems[i]);
+      
+      const promises = selectedDocs.map(async (docKey) => {
+        try {
+          const { data, error } = await supabase.functions.invoke("ai-documents", {
+            body: {
+              docType: docKey,
+              format: docFormats[docKey],
+              language: docLang,
+              prescriptionCountry,
+              transcript,
+              selectedItems: selectedBasketItems,
+              professionalName: profile?.full_name,
+              profession: profile?.profession,
+              specialty: profile?.specialty,
+            },
+          });
+          
+          if (error || data?.error) {
+            console.error(`Doc generation error for ${docKey}:`, error || data?.error);
+            return null;
+          }
+          
+          // Save generated document to database
+          if (data?.document) {
+            await supabase.from("documents").insert({
+              professional_id: profile?.user_id || "",
+              session_id: id,
+              client_id: session?.client_id,
+              document_type: docKey,
+              title: `${docKey.replace(/_/g, " ")} - ${session?.client_name || "Client"}`,
+              content: data.document,
+              language: docLang,
+              format: docFormats[docKey] || null,
+            });
+          }
+          return data?.document;
+        } catch (e) {
+          console.error(`Doc generation failed for ${docKey}:`, e);
+          return null;
+        }
+      });
+      
+      await Promise.all(promises);
+    }
+    
+    setGenerating(false);
+    setShowGenerateDialog(false);
+    toast.success(`${selectedDocs.length} documents generated`);
+    navigate(`/session/${id}/documents`);
   };
 
   // ─── Computed ─────────────────────────────────────────
@@ -391,23 +580,43 @@ export default function PostSession() {
         {/* Tabs */}
         <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="mx-4 mt-3 bg-surface border border-border w-fit">
-            <TabsTrigger value="summary" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">Summary</TabsTrigger>
-            <TabsTrigger value="flags" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">
+            <TabsTrigger value="summary" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
+              Summary {summaryDone && !summaryLoading && <Check className="w-3 h-3 text-accent" />}
+              {summaryLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+            </TabsTrigger>
+            <TabsTrigger value="flags" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
               Points to Note
-              {unreviewedCount > 0 && (
+              {flagsDone && !flagsLoading && <Check className="w-3 h-3 text-accent" />}
+              {flagsLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+              {!flagsLoading && unreviewedCount > 0 && (
                 <span className={`ml-1.5 w-5 h-5 rounded-full text-[10px] inline-flex items-center justify-center ${criticalUnreviewed > 0 ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>
                   {unreviewedCount}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="forward" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">Way Forward</TabsTrigger>
+            <TabsTrigger value="forward" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
+              Way Forward {forwardDone && !forwardLoading && <Check className="w-3 h-3 text-accent" />}
+              {forwardLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+            </TabsTrigger>
           </TabsList>
 
           {/* ─── Summary Tab ────────────────────────── */}
           <TabsContent value="summary" className="flex-1 overflow-hidden mt-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-4">
-                {Object.entries(summaryFields).map(([field, value]) => (
+                {summaryLoading && (
+                  <>
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="glass-card p-5 space-y-3">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-4/5" />
+                        <Skeleton className="h-3 w-3/5" />
+                      </div>
+                    ))}
+                  </>
+                )}
+                {!summaryLoading && Object.entries(summaryFields).map(([field, value]) => (
                   <div key={field} className="glass-card p-5">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-semibold text-primary">{field}</h3>
@@ -446,7 +655,19 @@ export default function PostSession() {
           <TabsContent value="flags" className="flex-1 overflow-hidden mt-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-3">
-                {flags.length === 0 && (
+                {flagsLoading && (
+                  <>
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="glass-card p-5 space-y-3">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-56" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-4/5" />
+                      </div>
+                    ))}
+                  </>
+                )}
+                {!flagsLoading && flags.length === 0 && (
                   <div className="text-center py-12">
                     <Check className="w-10 h-10 text-accent mx-auto mb-3 opacity-40" />
                     <p className="text-sm text-muted-foreground">No flags identified for this session.</p>
@@ -568,7 +789,7 @@ export default function PostSession() {
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
-            {chatMessages.length === 0 && (
+            {aiChat.messages.length === 0 && (
               <>
                 <div className="glass-card p-3 text-xs text-muted-foreground leading-relaxed">
                   I have full context from this session, <span className="text-foreground font-medium">{clientName}</span>'s history, and your knowledge base. Ask me anything — drug interactions, treatment protocols, case strategies, or ask me to draft a referral letter or prescription.
@@ -582,7 +803,7 @@ export default function PostSession() {
                 </div>
               </>
             )}
-            {chatMessages.map((m, i) => (
+            {aiChat.messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "ml-6" : "mr-1"}>
                 {m.thinking ? (
                   <div className="glass-card p-3">

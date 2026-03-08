@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,6 +193,7 @@ function getDemoAudit(pk: ProfKey): AuditEntry[] {
 export default function DocumentReview() {
   const { id } = useParams();
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const navigate = useNavigate();
 
   const pk = getProfKey(profile?.profession);
@@ -222,10 +224,109 @@ export default function DocumentReview() {
 
   const [session, setSession] = useState<any>(null);
 
+  // Load session and AI-generated documents
   useEffect(() => {
     if (!id) return;
     supabase.from("sessions").select("*").eq("id", id).single().then(({ data }) => setSession(data));
-  }, [id]);
+    
+    // Try loading AI-generated documents from DB
+    if (!isDemo) {
+      supabase.from("documents").select("*").eq("session_id", id).then(({ data: docs }) => {
+        if (!docs || docs.length === 0) return; // Keep demo data
+        
+        // Find clinical/case/progress note
+        const clinicalDoc = docs.find(d => 
+          ["clinical_note", "case_note", "progress_note", "case_summary", "session_summary", "needs_assessment", "attendance_note", "action_items", "follow_up_letter", "draft_application", "risk_assessment"].includes(d.document_type)
+        );
+        if (clinicalDoc?.content) {
+          try {
+            const content = clinicalDoc.content as any;
+            if (Array.isArray(content)) {
+              const aiSections: DocSection[] = content.map((s: any) => ({
+                key: s.section_name || s.key || "",
+                title: s.section_name || s.title || "",
+                content: s.content || "",
+                edited: false,
+              }));
+              if (aiSections.length > 0) setSections(aiSections);
+            } else if (typeof content === "object") {
+              const aiSections: DocSection[] = Object.entries(content).map(([key, val]) => ({
+                key,
+                title: key,
+                content: String(val),
+                edited: false,
+              }));
+              if (aiSections.length > 0) setSections(aiSections);
+            }
+          } catch { /* keep demo */ }
+        }
+        
+        // Find prescription
+        const rxDoc = docs.find(d => d.document_type === "prescription");
+        if (rxDoc?.content) {
+          try {
+            const content = rxDoc.content as any;
+            if (Array.isArray(content)) {
+              setRxItems(content.map((r: any) => ({
+                name: r.medication_name || r.name || "",
+                dosage: r.dosage || "",
+                form: r.form || "",
+                frequency: r.frequency || "",
+                duration: r.duration || "",
+                quantity: r.quantity || "",
+                instructions: r.special_instructions || r.instructions || "",
+              })));
+            }
+          } catch { /* keep demo */ }
+        }
+        
+        // Find referral letters
+        const refDocs = docs.filter(d => d.document_type === "referral_letter");
+        if (refDocs.length > 0) {
+          const aiReferrals: ReferralLetter[] = [];
+          refDocs.forEach(doc => {
+            try {
+              const content = doc.content as any;
+              if (Array.isArray(content)) {
+                content.forEach((r: any, i: number) => {
+                  aiReferrals.push({
+                    id: `ref-${doc.id}-${i}`,
+                    specialty: r.specialty || "Referral",
+                    to: r.to || "",
+                    body: r.body || "",
+                    language: r.language || "en",
+                    approved: false,
+                    urgency: r.urgency,
+                  });
+                });
+              } else if (typeof content === "object") {
+                aiReferrals.push({
+                  id: `ref-${doc.id}`,
+                  specialty: content.specialty || "Referral",
+                  to: content.to || "",
+                  body: content.body || "",
+                  language: content.language || "en",
+                  approved: false,
+                  urgency: content.urgency,
+                });
+              }
+            } catch { /* skip */ }
+          });
+          if (aiReferrals.length > 0) {
+            setReferrals(aiReferrals);
+            setActiveReferral(aiReferrals[0].id);
+          }
+        }
+        
+        // Update audit trail
+        const trail: AuditEntry[] = docs.map(d => ({
+          time: format(new Date(d.created_at), "HH:mm"),
+          action: `AI generated ${d.document_type.replace(/_/g, " ")}`,
+        }));
+        if (trail.length > 0) setAuditTrail(trail);
+      });
+    }
+  }, [id, isDemo, pk]);
 
   const clientName = session?.client_name || "Client";
   const sessionDate = session?.start_time ? format(new Date(session.start_time), "d MMMM yyyy") : format(new Date(), "d MMMM yyyy");
