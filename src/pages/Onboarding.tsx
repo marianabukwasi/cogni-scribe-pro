@@ -12,6 +12,18 @@ import { Check, Upload } from "lucide-react";
 
 const steps = ["Your Practice", "Languages", "Preferences", "Upload Samples"];
 
+const professions = [
+  { value: "medical_doctor", label: "Medical Doctor" },
+  { value: "therapist", label: "Therapist / Psychologist" },
+  { value: "lawyer", label: "Lawyer" },
+  { value: "financial_advisor", label: "Financial Advisor" },
+  { value: "hr_professional", label: "HR Professional" },
+  { value: "ngo_caseworker", label: "NGO Caseworker" },
+  { value: "social_worker", label: "Social Worker" },
+  { value: "refugee_support", label: "Refugee / Asylum Support" },
+  { value: "other", label: "Other" },
+];
+
 const countries = ["Luxembourg", "Hungary", "Belgium", "France", "Germany", "Austria", "Other EU", "Other"];
 const langOptions = ["English", "French", "German", "Luxembourgish", "Hungarian", "Spanish", "Dutch", "Italian", "Arabic", "Other"];
 const rxFormats = ["Luxembourg / eSanté", "Hungary / NEAK", "France", "Germany", "Belgium", "Austria", "Other EU Standard"];
@@ -25,6 +37,7 @@ export default function Onboarding() {
   const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
+  const [profession, setProfession] = useState(profile?.profession || "medical_doctor");
   const [specialty, setSpecialty] = useState("");
   const [organisation, setOrganisation] = useState("");
   const [country, setCountry] = useState("Luxembourg");
@@ -42,7 +55,7 @@ export default function Onboarding() {
 
   const handleComplete = async () => {
     const { error } = await supabase.from("profiles").update({
-      specialty, organisation, country_of_practice: country,
+      profession: profession as any, specialty, organisation, country_of_practice: country,
       primary_session_language: sessionLang, document_output_language: docLang,
       prescription_country_format: rxFormat, ui_language: uiLang,
       alert_style: alertStyles, default_retention: retention as any,
@@ -85,8 +98,17 @@ export default function Onboarding() {
                 <Input value={profile?.full_name || ""} readOnly className="bg-secondary border-border text-foreground" />
               </div>
               <div className="space-y-2">
+                <Label className="text-foreground">Profession</Label>
+                <Select value={profession} onValueChange={setProfession}>
+                  <SelectTrigger className="bg-secondary border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-surface border-border">
+                    {professions.map(p => <SelectItem key={p.value} value={p.value} className="text-foreground">{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label className="text-foreground">Specialty</Label>
-                <Input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder="e.g. Neurology, Family Law" className="bg-secondary border-border text-foreground placeholder:text-muted-foreground" />
+                <Input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder="e.g. Neurology, Family Law, Asylum Support" className="bg-secondary border-border text-foreground placeholder:text-muted-foreground" />
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">Organisation (optional)</Label>
