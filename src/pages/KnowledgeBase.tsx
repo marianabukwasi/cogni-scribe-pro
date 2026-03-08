@@ -147,12 +147,14 @@ export default function KnowledgeBase() {
     fileInputRef.current?.click();
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-    Array.from(files).forEach(file => {
+    if (!files || !profile) return;
+
+    for (const file of Array.from(files)) {
+      const tempId = `temp-${Date.now()}-${Math.random()}`;
       const newItem: KBItem = {
-        id: `temp-${Date.now()}-${Math.random()}`,
+        id: tempId,
         title: file.name,
         category: uploadCategory,
         tags: [],
@@ -161,12 +163,53 @@ export default function KnowledgeBase() {
         metadata: { size: file.size },
       };
       setItems(prev => [newItem, ...prev]);
-      // Simulate processing
-      setTimeout(() => {
-        setItems(prev => prev.map(i => i.id === newItem.id ? { ...i, status: "ready", metadata: { ...i.metadata, pages: Math.floor(Math.random() * 50) + 5 } } : i));
-        toast.success(`${file.name} processed and ready`);
-      }, 3000);
-    });
+
+      try {
+        // Upload file to storage bucket
+        const filePath = `${profile.user_id}/${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("knowledge-base")
+          .upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        // Extract text content from the file
+        let textContent = "";
+        if (file.type === "text/plain" || file.name.endsWith(".txt")) {
+          textContent = await file.text();
+        } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+          textContent = `[PDF file: ${file.name} — ${Math.round(file.size / 1024)}KB. Full text extraction pending.]`;
+        } else if (file.name.endsWith(".docx") || file.name.endsWith(".doc")) {
+          textContent = `[Document: ${file.name} — ${Math.round(file.size / 1024)}KB. Full text extraction pending.]`;
+        }
+
+        // Save to knowledge_base_items table
+        const { data: inserted, error: dbError } = await supabase.from("knowledge_base_items").insert({
+          title: file.name,
+          category: uploadCategory,
+          tags: [],
+          status: "ready",
+          content: textContent || null,
+          file_url: filePath,
+          professional_id: profile.user_id,
+          metadata: { size: file.size, type: file.type } as any,
+        }).select().single();
+
+        if (dbError) throw dbError;
+
+        // Update local state with real DB item
+        setItems(prev => prev.map(i => i.id === tempId ? {
+          ...i,
+          id: inserted.id,
+          status: "ready",
+          file_url: filePath,
+          content: textContent,
+        } : i));
+        toast.success(`${file.name} uploaded and indexed`);
+      } catch (err: any) {
+        setItems(prev => prev.map(i => i.id === tempId ? { ...i, status: "error" } : i));
+        toast.error(`Failed to upload ${file.name}: ${err.message}`);
+      }
+    }
     e.target.value = "";
   };
 
