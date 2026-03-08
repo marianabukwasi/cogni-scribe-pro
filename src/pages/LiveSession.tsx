@@ -430,12 +430,23 @@ export default function LiveSession() {
       decision_timestamp: new Date().toISOString(),
     }).eq("id", id);
 
-    // Simulate audio deletion for non-keep-everything
-    if (decision !== "keep_everything") {
-      await new Promise(r => setTimeout(r, 800));
-    }
+    // Clear all audio buffers from device memory (volatile audio guarantee)
+    deepgram.clearAudioBuffers();
 
-    toast.success(`Session saved. ${retainedItems.length} items retained.`, { duration: 3000 });
+    toast.success(`Session saved. ${retainedItems.length} items retained. Audio permanently cleared from this device.`, { duration: 3000 });
+
+    // Save alert log to session
+    if (alertSystem.alerts.length > 0) {
+      await supabase.from("sessions").update({
+        points_to_note: alertSystem.alerts.map(a => ({
+          severity: a.severity,
+          message: a.message,
+          timestamp: a.timestamp,
+          triggeredAt: a.triggeredAt,
+          read: a.read,
+        })) as any,
+      }).eq("id", id);
+    }
 
     setTimeout(() => {
       navigate(`/session/${id}/post`);
