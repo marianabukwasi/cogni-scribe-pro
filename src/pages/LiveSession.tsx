@@ -169,10 +169,14 @@ export default function LiveSession() {
   const { profile } = useAuth();
   const { isDemo } = useDemo();
   const deepgram = useDeepgramTranscription();
+  const aiSuggestions = useAISuggestions();
 
   const pk = getProfessionKey(profile?.profession);
   const sections = sectionTitles[pk];
   const demoSuggestions = getDemoSuggestions(pk);
+
+  // Active suggestions: AI-generated for real sessions, demo for demo mode
+  const activeSuggestions: (Suggestion | AISuggestion)[] = isDemo ? demoSuggestions : (aiSuggestions.suggestions.length > 0 ? aiSuggestions.suggestions : demoSuggestions);
 
   const [session, setSession] = useState<any>(null);
   const [paused, setPaused] = useState(false);
