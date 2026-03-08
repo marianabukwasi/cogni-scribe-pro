@@ -273,6 +273,7 @@ export default function PostSession() {
       setSession(data);
       if (data?.manual_notes) setNotes(data.manual_notes);
       if (data?.document_output_language) setDocLang(data.document_output_language);
+      if (Array.isArray(data?.points_to_note)) setSessionAlerts(data.points_to_note);
     });
   }, [id]);
 
