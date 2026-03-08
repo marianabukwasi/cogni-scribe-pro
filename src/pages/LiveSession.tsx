@@ -448,7 +448,7 @@ export default function LiveSession() {
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
-  const alertStyle = profile?.alert_style || ["silent_flash"];
+  // alertStyle already declared at line 175
 
   const groupedSuggestions = sectionOrder.reduce((acc, section) => {
     acc[section] = activeSuggestions.filter(s => s.section === section);
