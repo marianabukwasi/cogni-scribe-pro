@@ -328,13 +328,15 @@ export default function LiveSession() {
 
   const handleEndSession = async () => {
     if (!id) return;
-    // Save session state first
+    // Stop live transcription
+    if (!isDemo && liveStarted) deepgram.disconnect();
+    // Save session state
     await supabase.from("sessions").update({
       status: "ended" as any,
       end_time: new Date().toISOString(),
       duration_seconds: timer,
       manual_notes: notes,
-      transcript: demoTranscript.slice(0, visibleLines) as any,
+      transcript: transcriptLines.filter(l => !l.isInterim) as any,
       selected_items: basketItems.map(b => ({ category: b.category, title: b.title, detail: b.detail, isCustom: b.isCustom || false })) as any,
     }).eq("id", id);
     setSessionEnded(true);
