@@ -474,18 +474,55 @@ export default function LiveSession() {
           <div className="p-3 border-b border-border flex items-center gap-2">
             <Mic className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground">Live Transcript</span>
-            {!paused && !sessionEnded && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
+            {!isDemo && deepgram.isConnecting && <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1"><Loader2 className="w-3 h-3 animate-spin" />Connecting</span>}
+            {!isDemo && deepgram.error && deepgram.isConnected === false && liveStarted && <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1"><WifiOff className="w-3 h-3" />Reconnecting</span>}
+            {(isDemo ? !paused && !sessionEnded : deepgram.isConnected && !paused) && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
             {paused && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">PAUSED</span>}
             {sessionEnded && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">ENDED</span>}
           </div>
-          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-            {visibleLines === 0 && (
+
+          {/* Privacy notice */}
+          {!isDemo && liveStarted && !sessionEnded && (
+            <div className="px-4 py-1.5 bg-primary/5 border-b border-border flex items-center gap-2">
+              <Shield className="w-3 h-3 text-primary shrink-0" />
+              <span className="text-[10px] text-muted-foreground">Audio is transcribed in real time and not stored.</span>
+            </div>
+          )}
+
+          {/* Mic permission denied screen */}
+          {!isDemo && deepgram.micPermission === "denied" && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+              <MicOff className="w-12 h-12 text-destructive mb-3 opacity-60" />
+              <p className="text-sm font-medium text-foreground mb-1">Microphone Access Required</p>
+              <p className="text-xs text-muted-foreground mb-4 max-w-[260px]">
+                Please allow microphone access in your browser settings and reload the page to enable live transcription.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="border-border text-foreground">
+                Reload Page
+              </Button>
+            </div>
+          )}
+
+          {/* Start button for live mode */}
+          {!isDemo && !liveStarted && !sessionEnded && deepgram.micPermission !== "denied" && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+              <Mic className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
+              <p className="text-sm text-muted-foreground mb-4">Start live transcription to begin capturing audio</p>
+              <Button onClick={startLiveTranscription} disabled={deepgram.isConnecting} className="gap-2">
+                {deepgram.isConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                {deepgram.isConnecting ? "Connecting..." : "Start Transcription"}
+              </Button>
+            </div>
+          )}
+
+          <div ref={transcriptRef} className={`flex-1 overflow-y-auto p-4 space-y-4 ${!isDemo && !liveStarted && !sessionEnded ? "hidden" : ""}`}>
+            {isDemo && visibleLines === 0 && (
               <div className="text-center py-16">
                 <Mic className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
                 <p className="text-sm text-muted-foreground">Press Start Session to begin transcribing</p>
               </div>
             )}
-            {demoTranscript.slice(0, visibleLines).map((line, i) => (
+            {transcriptLines.map((line, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-semibold ${line.speaker === "Professional" ? "text-primary" : line.speaker === "Client" ? "text-accent" : "text-warning"}`}>
@@ -495,7 +532,9 @@ export default function LiveSession() {
                   <span className="text-[10px] text-muted-foreground">{line.time}</span>
                   {line.lowConfidence && <AlertTriangle className="w-3 h-3 text-warning" />}
                 </div>
-                <p className={`text-sm text-foreground leading-relaxed ${line.lowConfidence ? "underline decoration-warning decoration-wavy decoration-1" : ""}`}>
+                <p className={`text-sm leading-relaxed ${
+                  line.isInterim ? "text-muted-foreground italic" : "text-foreground"
+                } ${line.lowConfidence ? "underline decoration-warning decoration-wavy decoration-1" : ""}`}>
                   {line.text}
                 </p>
               </div>
