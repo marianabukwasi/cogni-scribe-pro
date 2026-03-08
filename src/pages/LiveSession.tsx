@@ -419,6 +419,9 @@ export default function LiveSession() {
 
   const handleEndSession = async () => {
     if (!id) return;
+    // Increment session count for PWA prompt
+    const count = parseInt(localStorage.getItem("kloer_session_count") || "0");
+    localStorage.setItem("kloer_session_count", String(count + 1));
     // Stop live transcription
     if (!isDemo && liveStarted) deepgram.disconnect();
     // Save session state
