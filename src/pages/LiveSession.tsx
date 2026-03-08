@@ -266,6 +266,24 @@ export default function LiveSession() {
     }
   }, [visibleLines, alertSystem.alerts.length, isDemo]);
 
+  // Wire AI suggestion warnings to alert system (live mode)
+  const prevWarningCount = useRef(0);
+  useEffect(() => {
+    if (isDemo) return;
+    const warnings = aiSuggestions.suggestions.filter(s => s.section === "warnings");
+    if (warnings.length > prevWarningCount.current) {
+      const newWarnings = warnings.slice(prevWarningCount.current);
+      newWarnings.forEach(w => {
+        alertSystem.triggerAlert({
+          severity: w.title?.toLowerCase().includes("interaction") || w.confidence === "High match" ? "critical" : "important",
+          message: `${w.title}: ${w.detail}`,
+          timestamp: formatTime(timer),
+        });
+      });
+    }
+    prevWarningCount.current = warnings.length;
+  }, [aiSuggestions.suggestions, isDemo, timer]);
+
   // Track new transcript utterances for AI suggestions
   const prevLineCount = useRef(0);
   useEffect(() => {
