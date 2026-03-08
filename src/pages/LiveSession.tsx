@@ -504,10 +504,17 @@ export default function LiveSession() {
         <div className="absolute top-14 right-48 z-50 w-80 glass-card border border-warning/30 shadow-lg">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Alerts</span>
-            <button onClick={() => setShowAlerts(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            <div className="flex items-center gap-2">
+              {alertSystem.unreadCount > 1 && (
+                <Button size="sm" variant="ghost" className="text-[10px] text-primary h-5 px-1.5" onClick={alertSystem.markAllRead}>
+                  Mark all read
+                </Button>
+              )}
+              <button onClick={() => setShowAlerts(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            </div>
           </div>
           <div className="p-3 space-y-2">
-            {alerts.map(a => (
+            {alertSystem.alerts.map(a => (
               <div key={a.id} className={`p-3 rounded-lg border ${a.severity === "critical" ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle className={`w-3.5 h-3.5 ${a.severity === "critical" ? "text-destructive" : "text-warning"}`} />
@@ -516,11 +523,10 @@ export default function LiveSession() {
                 <p className="text-xs text-foreground">{a.message}</p>
                 {!a.read && (
                   <Button size="sm" variant="ghost" className="text-xs text-primary mt-1.5 h-6 px-2"
-                    onClick={() => setAlerts(prev => prev.map(al => al.id === a.id ? { ...al, read: true } : al))}>
+                    onClick={() => alertSystem.markRead(a.id)}>
                     Mark as reviewed
                   </Button>
                 )}
-                {alertStyle.includes("phone_vibration") && <p className="text-[10px] text-muted-foreground mt-1 italic">📳 Phone would vibrate now</p>}
               </div>
             ))}
           </div>
