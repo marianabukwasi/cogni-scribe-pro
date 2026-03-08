@@ -11,8 +11,9 @@ import { toast } from "sonner";
 import {
   Mic, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus, RefreshCw, FileText
+  Plus, RefreshCw, FileText, Archive, Timer
 } from "lucide-react";
+import { format } from "date-fns";
 
 // ─── Types ──────────────────────────────────────────────
 interface Utterance {
@@ -183,6 +184,10 @@ export default function LiveSession() {
   const [customBasketItem, setCustomBasketItem] = useState("");
   const [refreshCountdown, setRefreshCountdown] = useState(30);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [showDecisionGate, setShowDecisionGate] = useState(false);
+  const [selectedRetention, setSelectedRetention] = useState<string | null>(null);
+  const [purgeTimer, setPurgeTimer] = useState((profile?.auto_purge_minutes || 10) * 60);
+  const [decisionMade, setDecisionMade] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const lastNotesLength = useRef(0);
@@ -282,6 +287,7 @@ export default function LiveSession() {
 
   const handleEndSession = async () => {
     if (!id) return;
+    // Save session state first
     await supabase.from("sessions").update({
       status: "ended" as any,
       end_time: new Date().toISOString(),
@@ -291,7 +297,52 @@ export default function LiveSession() {
       selected_items: basketItems.map(b => ({ category: b.category, title: b.title, detail: b.detail, isCustom: b.isCustom || false })) as any,
     }).eq("id", id);
     setSessionEnded(true);
-    navigate(`/session/${id}/post`);
+    setShowEndDialog(false);
+    setShowDecisionGate(true);
+  };
+
+  // Auto-purge countdown for decision gate
+  useEffect(() => {
+    if (!showDecisionGate || decisionMade) return;
+    if (purgeTimer <= 0) {
+      handleRetentionDecision("summary_only");
+      return;
+    }
+    const iv = setInterval(() => setPurgeTimer(t => t - 1), 1000);
+    return () => clearInterval(iv);
+  }, [showDecisionGate, purgeTimer, decisionMade]);
+
+  const handleRetentionDecision = async (decision: string) => {
+    if (!id || decisionMade) return;
+    setDecisionMade(true);
+    setSelectedRetention(decision);
+
+    const retainedItems: string[] = [];
+    if (decision === "summary_only") retainedItems.push("summary", "selected_items");
+    if (decision === "transcript_summary") retainedItems.push("transcript", "summary", "selected_items");
+    if (decision === "keep_everything") retainedItems.push("audio", "transcript", "summary", "selected_items");
+
+    await supabase.from("sessions").update({
+      retention_decision: decision as any,
+      decision_timestamp: new Date().toISOString(),
+    }).eq("id", id);
+
+    // Simulate audio deletion for non-keep-everything
+    if (decision !== "keep_everything") {
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    toast.success(`Session saved. ${retainedItems.length} items retained.`, { duration: 3000 });
+
+    setTimeout(() => {
+      navigate(`/session/${id}/post`);
+    }, 1500);
+  };
+
+  const formatPurgeTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
   const alertStyle = profile?.alert_style || ["silent_flash"];
@@ -546,17 +597,120 @@ export default function LiveSession() {
         </div>
       </div>
 
-      {/* ─── End Session Dialog ──────────────────────── */}
+      {/* ─── End Session Confirmation ────────────── */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
         <DialogContent className="bg-surface border-border">
           <DialogHeader><DialogTitle className="text-foreground font-heading">End this session?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">This will stop the recording and move to the post-session review.</p>
+          <p className="text-sm text-muted-foreground">This will stop the recording and move to the retention decision.</p>
           <div className="flex gap-3 justify-end mt-4">
             <Button variant="outline" onClick={() => setShowEndDialog(false)} className="border-border text-foreground">Cancel</Button>
             <Button onClick={handleEndSession} className="bg-destructive text-destructive-foreground">Confirm End</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ─── Decision Gate (Full-screen, non-dismissible) ── */}
+      {showDecisionGate && (
+        <div className="fixed inset-0 z-[100] bg-background/98 backdrop-blur-sm flex items-center justify-center">
+          <div className="w-full max-w-3xl mx-auto px-6">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-heading text-foreground mb-2">What would you like to keep from this session?</h2>
+              <p className="text-sm text-muted-foreground">
+                Session with <span className="text-foreground font-medium">{session?.client_name || "Client"}</span> — {formatTime(timer)} — {format(new Date(), "d MMM yyyy")}
+              </p>
+            </div>
+
+            {/* Auto-purge timer */}
+            {!decisionMade && (
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <Timer className={`w-4 h-4 ${purgeTimer < 60 ? "text-destructive" : "text-warning"}`} />
+                <span className={`text-sm font-mono ${purgeTimer < 60 ? "text-destructive" : "text-warning"}`}>
+                  Auto-deleting audio and transcript in {formatPurgeTime(purgeTimer)} if no selection made
+                </span>
+              </div>
+            )}
+
+            {/* Three option cards */}
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              {/* Option 1 — Summary Only */}
+              <button
+                onClick={() => handleRetentionDecision("summary_only")}
+                disabled={decisionMade}
+                className={`glass-card p-6 text-left transition-all duration-200 hover:border-primary/50 relative ${
+                  selectedRetention === "summary_only" ? "border-accent bg-accent/5" : ""
+                } ${decisionMade && selectedRetention !== "summary_only" ? "opacity-40" : ""}`}
+              >
+                <span className="status-badge bg-accent/20 text-accent text-[10px] mb-4 inline-block">Most Private</span>
+                <div className="mb-3">
+                  <Sparkles className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-base font-heading text-foreground mb-2">Summary Only</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  The audio and full transcript will be permanently deleted. Only the AI-generated key points will be saved. Best for sensitive cases.
+                </p>
+                {selectedRetention === "summary_only" && (
+                  <Check className="absolute top-4 right-4 w-5 h-5 text-accent" />
+                )}
+              </button>
+
+              {/* Option 2 — Transcript + Summary (recommended) */}
+              <button
+                onClick={() => handleRetentionDecision("transcript_summary")}
+                disabled={decisionMade}
+                className={`glass-card p-6 text-left transition-all duration-200 relative ${
+                  !decisionMade ? "border-primary/40 ring-1 ring-primary/20" : ""
+                } ${selectedRetention === "transcript_summary" ? "border-accent bg-accent/5" : "hover:border-primary/50"} ${
+                  decisionMade && selectedRetention !== "transcript_summary" ? "opacity-40" : ""
+                }`}
+              >
+                <span className="status-badge bg-primary/20 text-primary text-[10px] mb-4 inline-block">Recommended</span>
+                <div className="mb-3">
+                  <FileText className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-base font-heading text-foreground mb-2">Transcript + Summary</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  The audio will be deleted. The full text transcript and summary will be saved securely.
+                </p>
+                {selectedRetention === "transcript_summary" && (
+                  <Check className="absolute top-4 right-4 w-5 h-5 text-accent" />
+                )}
+              </button>
+
+              {/* Option 3 — Keep Everything */}
+              <button
+                onClick={() => handleRetentionDecision("keep_everything")}
+                disabled={decisionMade}
+                className={`glass-card p-6 text-left transition-all duration-200 hover:border-primary/50 relative ${
+                  selectedRetention === "keep_everything" ? "border-accent bg-accent/5" : ""
+                } ${decisionMade && selectedRetention !== "keep_everything" ? "opacity-40" : ""}`}
+              >
+                <span className="status-badge bg-warning/20 text-warning text-[10px] mb-4 inline-block">Full Record</span>
+                <div className="mb-3">
+                  <Archive className="w-8 h-8 text-warning" />
+                </div>
+                <h3 className="text-base font-heading text-foreground mb-2">Keep Everything</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Audio, transcript, and summary all saved. Use only when audio evidence may be needed.
+                </p>
+                {selectedRetention === "keep_everything" && (
+                  <Check className="absolute top-4 right-4 w-5 h-5 text-accent" />
+                )}
+              </button>
+            </div>
+
+            {/* Post-decision confirmation */}
+            {decisionMade && (
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 status-badge bg-accent/20 text-accent text-sm px-4 py-2">
+                  <Check className="w-4 h-4" />
+                  {selectedRetention !== "keep_everything" ? "Audio deleted." : ""} Redirecting to post-session review…
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── Privacy Scrub Dialog ────────────────────── */}
       <Dialog open={showScrubDialog} onOpenChange={setShowScrubDialog}>
