@@ -20,6 +20,7 @@ import DocumentReview from "./pages/DocumentReview";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import SettingsPage from "./pages/SettingsPage";
 import IntakeTemplates from "./pages/IntakeTemplates";
+import IntakeForm from "./pages/IntakeForm";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
