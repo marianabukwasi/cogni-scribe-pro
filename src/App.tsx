@@ -84,6 +84,9 @@ const App = () => (
               <Route path="/knowledge-base" element={<KnowledgeBase />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/intake-templates" element={<IntakeTemplates />} />
+              <Route path="/billing" element={<Billing />} />
+              <Route path="/ngo-intake" element={<NGOIntake />} />
+              <Route path="/grant-reporting" element={<GrantReporting />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
