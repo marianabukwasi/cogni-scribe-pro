@@ -483,7 +483,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_professional_info: {
+        Args: { p_user_id: string }
+        Returns: {
+          full_name: string
+          organisation: string
+        }[]
+      }
     }
     Enums: {
       account_tier:
