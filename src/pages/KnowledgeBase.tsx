@@ -237,8 +237,8 @@ export default function KnowledgeBase() {
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="font-heading text-3xl text-foreground">Knowledge Base</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="font-heading text-2xl md:text-3xl text-foreground">Knowledge Base</h1>
+        <p className="text-xs md:text-sm text-muted-foreground mt-1">
           Your private knowledge base. The AI searches here first before using general knowledge. The more you add, the more it reflects how you practice.
         </p>
         <div className="flex items-center gap-4 mt-3">
