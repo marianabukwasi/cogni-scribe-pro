@@ -65,7 +65,7 @@ const App = () => (
         <DemoProvider>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/sign-in" element={<AuthRoute><SignIn /></AuthRoute>} />
             <Route path="/sign-up" element={<AuthRoute><SignUp /></AuthRoute>} />
             <Route path="/intake" element={<IntakeForm />} />
