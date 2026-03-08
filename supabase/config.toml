@@ -1,1 +1,16 @@
 project_id = "yjauigueiuvvwyicqqgj"
+
+[functions.deepgram-token]
+verify_jwt = false
+
+[functions.ai-suggestions]
+verify_jwt = false
+
+[functions.ai-post-session]
+verify_jwt = false
+
+[functions.ai-documents]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
