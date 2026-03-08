@@ -595,7 +595,7 @@ export default function PostSession() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
+    <div className="h-[calc(100vh-4rem)] flex flex-col md:flex-row">
       {/* ─── Main Content ────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
