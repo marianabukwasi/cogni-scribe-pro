@@ -620,7 +620,8 @@ export default function PostSession() {
 
         {/* Tabs */}
         <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mx-4 mt-3 bg-surface border border-border w-fit">
+          <div className="overflow-x-auto mx-3 md:mx-4 mt-3">
+          <TabsList className="bg-surface border border-border w-fit">
             <TabsTrigger value="summary" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
               Summary {summaryDone && !summaryLoading && <Check className="w-3 h-3 text-accent" />}
               {summaryLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
