@@ -13,7 +13,7 @@ export default function AppLayout() {
         <div className="bg-warning/10 border-b border-warning/30 px-4 py-2 flex items-center justify-center gap-2 text-xs text-warning shrink-0">
           <AlertTriangle className="w-3.5 h-3.5" />
           <span className="font-medium">Demo Mode</span>
-          <span className="text-warning/80 hidden sm:inline">— All data is simulated.</span>
+          <span className="text-warning/80 hidden sm:inline">— Connect your API keys to go live.</span>
           <Link to="/settings" className="underline hover:text-foreground ml-1 inline-flex items-center gap-1">
             <Settings className="w-3 h-3" />Settings
           </Link>
