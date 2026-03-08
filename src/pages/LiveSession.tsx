@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,14 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
   Mic, Pause, Play, Square, Clock, Shield, AlertTriangle,
   Check, X, Sparkles, Bold, List, Highlighter, Bell, BellOff,
-  Plus
+  Plus, RefreshCw, FileText
 } from "lucide-react";
 
-// ─── Demo Data ──────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────
 interface Utterance {
   speaker: string;
   lang: string;
@@ -22,6 +23,31 @@ interface Utterance {
   lowConfidence?: boolean;
 }
 
+interface Suggestion {
+  category: string;
+  title: string;
+  detail: string;
+  confidence?: string;
+  section: string;
+}
+
+interface Alert {
+  id: string;
+  severity: "critical" | "important" | "info";
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+interface BasketItem {
+  id: string;
+  category: string;
+  title: string;
+  detail: string;
+  isCustom?: boolean;
+}
+
+// ─── Demo Transcript ───────────────────────────────────
 const demoTranscript: Utterance[] = [
   { speaker: "Professional", lang: "EN", time: "00:00:12", text: "Good morning. How have you been feeling since our last visit?" },
   { speaker: "Client", lang: "EN", time: "00:00:18", text: "The headaches have been getting worse. Especially in the mornings when I wake up." },
@@ -36,44 +62,101 @@ const demoTranscript: Utterance[] = [
   { speaker: "Professional", lang: "EN", time: "00:02:08", text: "I'd like to check your eye pressure and do a fundoscopy today. I'm also going to refer you to ophthalmology." },
 ];
 
-interface Suggestion {
-  category: string;
-  title: string;
-  detail: string;
-  confidence: string;
-}
-
-const demoSuggestions: Suggestion[] = [
-  { category: "Warning", title: "Drug Interaction Alert", detail: "St. John's Wort may interact with multiple medications. Verify current prescription list. Can reduce effectiveness of oral contraceptives and blood thinners.", confidence: "" },
-  { category: "Diagnosis", title: "Idiopathic Intracranial Hypertension (IIH)", detail: "Headache with visual disturbances, pressure-type pain, bilateral papilledema pattern. Consider urgent fundoscopy.", confidence: "High match" },
-  { category: "Diagnosis", title: "Migraine with Aura", detail: "Visual disturbances preceding/accompanying headache. Less likely given pressure quality and progressive course.", confidence: "Possible" },
-  { category: "Medication", title: "Acetazolamide (Diamox) 250mg", detail: "First-line for IIH. Reduces CSF production. Start 250mg twice daily, titrate up.", confidence: "" },
-  { category: "Procedure", title: "Urgent Fundoscopy", detail: "Required to assess papilledema. If confirmed, consider lumbar puncture with opening pressure.", confidence: "" },
-  { category: "Referral", title: "Ophthalmology Referral", detail: "Visual field assessment and OCT to document any optic disc swelling.", confidence: "" },
-  { category: "Next Step", title: "Follow-up in 2 weeks", detail: "Review fundoscopy results, medication response, and visual symptoms progression.", confidence: "" },
-];
-
-interface Alert {
-  id: string;
-  severity: "critical" | "important" | "info";
-  message: string;
-  timestamp: string;
-  read: boolean;
-}
-
 const demoAlerts: Alert[] = [
   { id: "1", severity: "critical", message: "Drug interaction: St. John's Wort detected — may interact with SSRIs and oral contraceptives. Verify patient's full medication list.", timestamp: "00:01:55", read: false },
 ];
 
-// ─── Category Styling ───────────────────────────────────
-const categoryColors: Record<string, string> = {
-  Warning: "bg-destructive/20 text-destructive",
-  Diagnosis: "bg-primary/20 text-primary",
-  Medication: "bg-accent/20 text-accent",
-  Procedure: "bg-warning/20 text-warning",
-  Referral: "bg-purple-500/20 text-purple-400",
-  "Next Step": "bg-secondary text-muted-foreground",
+// ─── Profession-Adaptive Config ─────────────────────────
+type ProfessionKey = "medical" | "legal" | "ngo" | "therapy" | "generic";
+
+const professionLabelMap: Record<ProfessionKey, Record<string, string>> = {
+  medical: { diagnosis: "Diagnosis", action: "Medication", procedure: "Procedure", referral: "Referral", warning: "Warning", followup: "Follow-up", alternative: "If First-Line Fails" },
+  legal: { diagnosis: "Case Assessment", action: "Legal Strategy", procedure: "Required Documents", referral: "Referral to Specialist", warning: "Legal Risk", followup: "Next Step", alternative: "Alternative Strategy" },
+  ngo: { diagnosis: "Status Assessment", action: "Immediate Needs", procedure: "Service Referral", referral: "Application Type", warning: "Safeguarding", followup: "Follow-up", alternative: "Alternative Support" },
+  therapy: { diagnosis: "DSM Assessment", action: "Therapeutic Approach", procedure: "Medication Review", referral: "Crisis Referral", warning: "Safety Concern", followup: "Follow-up", alternative: "Alternative Approach" },
+  generic: { diagnosis: "Assessment", action: "Recommended Action", procedure: "Procedure", referral: "Referral", warning: "Warning", followup: "Next Step", alternative: "Alternative" },
 };
+
+const sectionOrder = ["warnings", "diagnoses", "actions", "alternatives", "referrals", "followups"] as const;
+
+const sectionTitles: Record<ProfessionKey, Record<typeof sectionOrder[number], string>> = {
+  medical: { warnings: "Active Warnings", diagnoses: "Likely Diagnoses", actions: "Recommended Actions", alternatives: "If First-Line Fails", referrals: "Referrals", followups: "Follow-up Recommendations" },
+  legal: { warnings: "Legal Risks", diagnoses: "Case Assessment", actions: "Legal Strategy", alternatives: "Alternative Strategies", referrals: "Specialist Referrals", followups: "Next Steps" },
+  ngo: { warnings: "Safeguarding Concerns", diagnoses: "Status Assessment", actions: "Immediate Needs", alternatives: "Alternative Support", referrals: "Service Referrals", followups: "Follow-up Actions" },
+  therapy: { warnings: "Safety Concerns", diagnoses: "DSM Assessment", actions: "Therapeutic Approach", alternatives: "Alternative Approaches", referrals: "Crisis Referrals", followups: "Follow-up Plan" },
+  generic: { warnings: "Active Warnings", diagnoses: "Assessment", actions: "Recommended Actions", alternatives: "Alternatives", referrals: "Referrals", followups: "Follow-up" },
+};
+
+function getProfessionKey(profession?: string): ProfessionKey {
+  if (!profession) return "medical";
+  if (["medical_doctor"].includes(profession)) return "medical";
+  if (["lawyer"].includes(profession)) return "legal";
+  if (["ngo_caseworker", "refugee_support", "social_worker"].includes(profession)) return "ngo";
+  if (["therapist"].includes(profession)) return "therapy";
+  return "generic";
+}
+
+function getDemoSuggestions(pk: ProfessionKey): Suggestion[] {
+  const l = professionLabelMap[pk];
+  if (pk === "medical") return [
+    { category: l.warning, title: "Drug Interaction Alert", detail: "St. John's Wort may interact with multiple medications. Verify current prescription list.", section: "warnings" },
+    { category: l.diagnosis, title: "Idiopathic Intracranial Hypertension (IIH)", detail: "Headache with visual disturbances, pressure-type pain. Consider urgent fundoscopy.", confidence: "High match", section: "diagnoses" },
+    { category: l.diagnosis, title: "Migraine with Aura", detail: "Visual disturbances preceding headache. Less likely given pressure quality.", confidence: "Possible", section: "diagnoses" },
+    { category: l.diagnosis, title: "Tension-Type Headache", detail: "Bilateral pressure-type pain. Visual symptoms less typical.", confidence: "Consider", section: "diagnoses" },
+    { category: l.action, title: "Acetazolamide (Diamox) 250mg", detail: "First-line for IIH. Start 250mg twice daily, titrate up.", section: "actions" },
+    { category: l.procedure, title: "Urgent Fundoscopy", detail: "Required to assess papilledema. If confirmed, consider LP with opening pressure.", section: "actions" },
+    { category: l.alternative, title: "Topiramate 25mg", detail: "Alternative if Acetazolamide not tolerated. Start low, titrate slowly.", section: "alternatives" },
+    { category: l.referral, title: "Ophthalmology Referral", detail: "Visual field assessment and OCT for optic disc swelling.", section: "referrals" },
+    { category: l.referral, title: "Neurology Consultation", detail: "If papilledema confirmed, neurological evaluation for secondary causes.", section: "referrals" },
+    { category: l.followup, title: "Follow-up in 2 weeks", detail: "Review fundoscopy results and medication response.", section: "followups" },
+  ];
+  if (pk === "legal") return [
+    { category: l.warning, title: "Statute of Limitations Risk", detail: "Case may be approaching limitation period. Verify dates immediately.", section: "warnings" },
+    { category: l.diagnosis, title: "Contract Dispute — Breach of Terms", detail: "Likely actionable breach. Key: demonstrating material breach.", confidence: "High match", section: "diagnoses" },
+    { category: l.action, title: "Send Letter Before Action", detail: "Formal notification. 14-day response window.", section: "actions" },
+    { category: l.procedure, title: "Gather Supporting Documents", detail: "Original contract, correspondence, payment records.", section: "actions" },
+    { category: l.alternative, title: "Mediation", detail: "Cost-effective alternative. May preserve business relationship.", section: "alternatives" },
+    { category: l.referral, title: "Specialist Commercial Litigation", detail: "If claim exceeds €50,000.", section: "referrals" },
+    { category: l.followup, title: "Client to provide documents within 5 days", detail: "Ensure all evidence gathered.", section: "followups" },
+  ];
+  if (pk === "ngo") return [
+    { category: l.warning, title: "Safeguarding Concern", detail: "Client mentioned domestic violence. Assess immediate safety.", section: "warnings" },
+    { category: l.diagnosis, title: "Asylum Application — Eligible", detail: "Conditions support international protection claim.", confidence: "High match", section: "diagnoses" },
+    { category: l.action, title: "Emergency Housing Application", detail: "Client without stable accommodation. Submit urgent request.", section: "actions" },
+    { category: l.action, title: "Medical Assessment Referral", detail: "Untreated medical conditions. Arrange health screening.", section: "actions" },
+    { category: l.referral, title: "Legal Aid for Asylum", detail: "Connect with legal aid for asylum application support.", section: "referrals" },
+    { category: l.followup, title: "Follow-up in 1 week", detail: "Check housing, medical, and documentation progress.", section: "followups" },
+  ];
+  if (pk === "therapy") return [
+    { category: l.warning, title: "Safety Assessment Needed", detail: "Client expressed passive suicidal ideation. Complete PHQ-9.", section: "warnings" },
+    { category: l.diagnosis, title: "Major Depressive Disorder — Moderate", detail: "Persistent low mood, sleep disturbance, anhedonia >2 weeks.", confidence: "High match", section: "diagnoses" },
+    { category: l.diagnosis, title: "Generalized Anxiety Disorder", detail: "Excessive worry, difficulty concentrating. Consider GAD-7.", confidence: "Possible", section: "diagnoses" },
+    { category: l.action, title: "CBT — Behavioral Activation", detail: "Evidence-based first-line for moderate depression.", section: "actions" },
+    { category: l.procedure, title: "SSRI Review with GP", detail: "Coordinate with GP for medication consideration.", section: "actions" },
+    { category: l.alternative, title: "ACT-based Approach", detail: "Acceptance and Commitment Therapy as alternative.", section: "alternatives" },
+    { category: l.referral, title: "Psychiatry Referral", detail: "If symptoms worsen or medication management needed.", section: "referrals" },
+    { category: l.followup, title: "Weekly sessions for 6 weeks", detail: "Reassess after 6 sessions. Track PHQ-9.", section: "followups" },
+  ];
+  return [
+    { category: l.warning, title: "Compliance Risk", detail: "Review regulatory requirements.", section: "warnings" },
+    { category: l.diagnosis, title: "Initial Assessment Complete", detail: "Key factors identified.", confidence: "High match", section: "diagnoses" },
+    { category: l.action, title: "Document Findings", detail: "Record observations in structured format.", section: "actions" },
+    { category: l.followup, title: "Schedule Follow-up", detail: "Book next appointment within 2 weeks.", section: "followups" },
+  ];
+}
+
+// ─── Category Colours ───────────────────────────────────
+function getCategoryColor(cat: string): string {
+  const lower = cat.toLowerCase();
+  if (lower.includes("warning") || lower.includes("risk") || lower.includes("safety") || lower.includes("safeguarding")) return "bg-destructive/20 text-destructive";
+  if (lower.includes("diagnos") || lower.includes("assessment") || lower.includes("dsm")) return "bg-primary/20 text-primary";
+  if (lower.includes("medic") || lower.includes("immediate") || lower.includes("strategy") || lower.includes("therapeutic") || lower.includes("cbt") || lower.includes("action")) return "bg-accent/20 text-accent";
+  if (lower.includes("procedure") || lower.includes("document") || lower.includes("review") || lower.includes("fundos")) return "bg-warning/20 text-warning";
+  if (lower.includes("referral") || lower.includes("crisis") || lower.includes("application") || lower.includes("specialist")) return "bg-purple-500/20 text-purple-400";
+  if (lower.includes("alternative") || lower.includes("first-line") || lower.includes("if first")) return "bg-orange-500/20 text-orange-400";
+  if (lower.includes("follow")) return "bg-secondary text-muted-foreground";
+  return "bg-secondary text-muted-foreground";
+}
 
 // ─── Component ──────────────────────────────────────────
 export default function LiveSession() {
@@ -81,13 +164,16 @@ export default function LiveSession() {
   const navigate = useNavigate();
   const { profile } = useAuth();
 
+  const pk = getProfessionKey(profile?.profession);
+  const sections = sectionTitles[pk];
+  const demoSuggestions = getDemoSuggestions(pk);
+
   const [session, setSession] = useState<any>(null);
-  const [recording, setRecording] = useState(true);
   const [paused, setPaused] = useState(false);
   const [timer, setTimer] = useState(0);
   const [notes, setNotes] = useState("");
   const [visibleLines, setVisibleLines] = useState(0);
-  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [basketItems, setBasketItems] = useState<BasketItem[]>([]);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showScrubDialog, setShowScrubDialog] = useState(false);
   const [scrubText, setScrubText] = useState("");
@@ -95,29 +181,29 @@ export default function LiveSession() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [scrubLog, setScrubLog] = useState<string[]>([]);
   const [customBasketItem, setCustomBasketItem] = useState("");
+  const [refreshCountdown, setRefreshCountdown] = useState(30);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const lastNotesLength = useRef(0);
 
-  // Load session
   useEffect(() => {
     if (!id) return;
     supabase.from("sessions").select("*").eq("id", id).single().then(({ data }) => {
       setSession(data);
       if (data?.manual_notes) setNotes(data.manual_notes);
+      if (data?.status === "ended") setSessionEnded(true);
     });
   }, [id]);
 
-  // Timer
   useEffect(() => {
-    if (paused) return;
+    if (paused || sessionEnded) return;
     const iv = setInterval(() => setTimer(t => t + 1), 1000);
     return () => clearInterval(iv);
-  }, [paused]);
+  }, [paused, sessionEnded]);
 
-  // Demo transcript animation
   useEffect(() => {
-    if (paused || visibleLines >= demoTranscript.length) return;
+    if (paused || sessionEnded || visibleLines >= demoTranscript.length) return;
     const t = setTimeout(() => {
       setVisibleLines(v => v + 1);
       setTimeout(() => {
@@ -125,44 +211,59 @@ export default function LiveSession() {
       }, 50);
     }, 2500 + Math.random() * 2500);
     return () => clearTimeout(t);
-  }, [visibleLines, paused]);
+  }, [visibleLines, paused, sessionEnded]);
 
-  // Trigger demo alert when drug interaction line appears
   useEffect(() => {
-    if (visibleLines >= 10 && alerts.length === 0) {
-      setAlerts([...demoAlerts]);
-    }
+    if (visibleLines >= 10 && alerts.length === 0) setAlerts([...demoAlerts]);
   }, [visibleLines, alerts.length]);
 
-  // Auto-save notes every 10s
+  useEffect(() => {
+    if (paused || sessionEnded) return;
+    const iv = setInterval(() => {
+      setRefreshCountdown(c => {
+        if (c <= 1) { toast.info("AI suggestions refreshed", { duration: 1500 }); return 30; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [paused, sessionEnded]);
+
   useEffect(() => {
     if (!id || !notes) return;
-    const t = setTimeout(() => {
-      supabase.from("sessions").update({ manual_notes: notes }).eq("id", id);
-    }, 10000);
+    const t = setTimeout(() => { supabase.from("sessions").update({ manual_notes: notes }).eq("id", id); }, 10000);
     return () => clearTimeout(t);
   }, [notes, id]);
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-
   const togglePause = () => setPaused(p => !p);
 
-  const toggleItem = (i: number) => {
-    if (demoSuggestions[i].category === "Warning") return;
-    setSelectedItems(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
+  const isInBasket = (s: Suggestion) => basketItems.some(b => !b.isCustom && b.title === s.title);
+
+  const toggleSuggestion = (s: Suggestion) => {
+    if (s.section === "warnings") return;
+    if (isInBasket(s)) {
+      setBasketItems(prev => prev.filter(b => b.title !== s.title || b.isCustom));
+    } else {
+      setBasketItems(prev => [...prev, { id: crypto.randomUUID(), category: s.category, title: s.title, detail: s.detail }]);
+    }
   };
 
-  // Auto-timestamp on new paragraph
+  const removeFromBasket = (itemId: string) => setBasketItems(prev => prev.filter(b => b.id !== itemId));
+
+  const addCustomToBasket = () => {
+    if (!customBasketItem.trim()) return;
+    setBasketItems(prev => [...prev, { id: crypto.randomUUID(), category: "Custom", title: customBasketItem.trim(), detail: "", isCustom: true }]);
+    setCustomBasketItem("");
+  };
+
   const handleNotesChange = (value: string) => {
     if (value.endsWith("\n\n") && value.length > lastNotesLength.current) {
-      const ts = formatTime(timer);
-      value = value + `[${ts}] `;
+      value = value + `[${formatTime(timer)}] `;
     }
     lastNotesLength.current = value.length;
     setNotes(value);
   };
 
-  // Notes toolbar
   const insertNoteFormat = (format: string) => {
     if (format === "bold") setNotes(n => n + "**");
     if (format === "bullet") setNotes(n => n + "\n• ");
@@ -171,8 +272,7 @@ export default function LiveSession() {
 
   const handleScrub = () => {
     if (!scrubText.trim()) return;
-    const ts = new Date().toISOString();
-    setScrubLog(prev => [...prev, `[${ts}] Detail scrubbed by professional`]);
+    setScrubLog(prev => [...prev, `[${new Date().toISOString()}] Detail scrubbed by professional`]);
     toast.success("Detail permanently scrubbed from record");
     setShowScrubDialog(false);
     setScrubText("");
@@ -188,19 +288,18 @@ export default function LiveSession() {
       duration_seconds: timer,
       manual_notes: notes,
       transcript: demoTranscript.slice(0, visibleLines) as any,
-      selected_items: selectedItems.map(i => demoSuggestions[i]) as any,
+      selected_items: basketItems.map(b => ({ category: b.category, title: b.title, detail: b.detail, isCustom: b.isCustom || false })) as any,
     }).eq("id", id);
+    setSessionEnded(true);
     navigate(`/session/${id}/post`);
   };
 
-  const addCustomToBasket = () => {
-    if (!customBasketItem.trim()) return;
-    // We'll add custom items as extra indices beyond demoSuggestions length
-    toast.success(`"${customBasketItem}" added to basket`);
-    setCustomBasketItem("");
-  };
-
   const alertStyle = profile?.alert_style || ["silent_flash"];
+
+  const groupedSuggestions = sectionOrder.reduce((acc, section) => {
+    acc[section] = demoSuggestions.filter(s => s.section === section);
+    return acc;
+  }, {} as Record<typeof sectionOrder[number], Suggestion[]>);
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -208,51 +307,41 @@ export default function LiveSession() {
       <div className="h-14 bg-surface border-b border-border flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-foreground">{session?.client_name || "Session"}</span>
-          {session?.session_type && (
-            <span className="status-badge bg-secondary text-muted-foreground text-[10px]">{session.session_type}</span>
-          )}
-          {/* Alert style indicator */}
+          {session?.session_type && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">{session.session_type}</span>}
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            {alertStyle.includes("silent_flash") && <BellOff className="w-3 h-3" />}
-            {alertStyle.includes("phone_vibration") && <Bell className="w-3 h-3" />}
+            {alertStyle.includes("silent_flash") ? <BellOff className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
             {alertStyle.includes("silent_flash") ? "Silent" : "Vibrate"}
           </span>
         </div>
-
         <div className="flex items-center gap-3">
-          {/* Alert indicator */}
           {unreadAlerts > 0 && (
             <button onClick={() => setShowAlerts(!showAlerts)} className="relative flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-warning pulse-recording" />
               <span className="text-xs text-warning font-medium">{unreadAlerts}</span>
             </button>
           )}
-
-          {/* Recording status */}
-          {!paused && (
+          {!paused && !sessionEnded && (
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive pulse-recording" />
               <span className="text-xs font-semibold text-destructive tracking-wide">LIVE</span>
             </div>
           )}
-
-          {/* Timer */}
-          <span className={`font-mono text-sm tabular-nums ${!paused ? "text-destructive" : "text-muted-foreground"}`}>
+          <span className={`font-mono text-sm tabular-nums ${!paused && !sessionEnded ? "text-destructive" : "text-muted-foreground"}`}>
             <Clock className="w-3.5 h-3.5 inline mr-1" />{formatTime(timer)}
           </span>
-
-          {/* Controls */}
-          <Button variant="ghost" size="sm" onClick={togglePause} className="text-foreground gap-1.5">
-            {paused ? <><Play className="w-4 h-4" /> Resume</> : <><Pause className="w-4 h-4" /> Pause</>}
-          </Button>
-
-          <Button variant="ghost" size="sm" onClick={() => setShowScrubDialog(true)} className="text-destructive gap-1.5">
-            <Shield className="w-4 h-4" />Privacy: Scrub Detail
-          </Button>
-
-          <Button size="sm" onClick={() => setShowEndDialog(true)} className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-1.5">
-            <Square className="w-3.5 h-3.5" />End Session
-          </Button>
+          {!sessionEnded && (
+            <>
+              <Button variant="ghost" size="sm" onClick={togglePause} className="text-foreground gap-1.5">
+                {paused ? <><Play className="w-4 h-4" /> Resume</> : <><Pause className="w-4 h-4" /> Pause</>}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowScrubDialog(true)} className="text-destructive gap-1.5">
+                <Shield className="w-4 h-4" />Privacy: Scrub Detail
+              </Button>
+              <Button size="sm" onClick={() => setShowEndDialog(true)} className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-1.5">
+                <Square className="w-3.5 h-3.5" />End Session
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -277,9 +366,7 @@ export default function LiveSession() {
                     Mark as reviewed
                   </Button>
                 )}
-                {alertStyle.includes("phone_vibration") && (
-                  <p className="text-[10px] text-muted-foreground mt-1 italic">📳 Phone would vibrate now</p>
-                )}
+                {alertStyle.includes("phone_vibration") && <p className="text-[10px] text-muted-foreground mt-1 italic">📳 Phone would vibrate now</p>}
               </div>
             ))}
           </div>
@@ -293,8 +380,9 @@ export default function LiveSession() {
           <div className="p-3 border-b border-border flex items-center gap-2">
             <Mic className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground">Live Transcript</span>
-            {!paused && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
+            {!paused && !sessionEnded && <span className="status-badge bg-destructive/20 text-destructive text-[10px]">LIVE</span>}
             {paused && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">PAUSED</span>}
+            {sessionEnded && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">ENDED</span>}
           </div>
           <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {visibleLines === 0 && (
@@ -327,63 +415,96 @@ export default function LiveSession() {
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">AI Suggestions</span>
-              <span className="text-[10px] text-muted-foreground">Click to select</span>
+              <span className="status-badge bg-secondary text-muted-foreground text-[10px]">Click to select</span>
             </div>
-            {unreadAlerts > 0 && (
-              <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1">
-                <AlertTriangle className="w-3 h-3" />{unreadAlerts}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {unreadAlerts > 0 && (
+                <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1">
+                  <AlertTriangle className="w-3 h-3" />{unreadAlerts}
+                </span>
+              )}
+              {!sessionEnded && (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <RefreshCw className="w-3 h-3" />{refreshCountdown}s
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {/* Warnings first */}
-            {demoSuggestions.filter(s => s.category === "Warning").map((s, i) => {
-              const origIdx = demoSuggestions.indexOf(s);
-              return (
-                <div key={origIdx} className="glass-card p-4 border-destructive/30 bg-destructive/5">
-                  <div className="flex items-center gap-2">
-                    <span className="status-badge bg-destructive/20 text-destructive text-[10px]">⚠ Warning</span>
-                  </div>
-                  <p className="text-sm font-medium text-foreground mt-2">{s.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{s.detail}</p>
-                </div>
-              );
-            })}
-
-            {/* Other suggestions */}
-            {demoSuggestions.filter(s => s.category !== "Warning").map((s, i) => {
-              const origIdx = demoSuggestions.indexOf(s);
-              const isSelected = selectedItems.includes(origIdx);
-              return (
-                <div key={origIdx} onClick={() => toggleItem(origIdx)}
-                  className={`suggestion-card ${isSelected ? "suggestion-card-selected" : ""}`}>
-                  <div className="flex items-start justify-between">
-                    <span className={`status-badge ${categoryColors[s.category] || "bg-secondary text-muted-foreground"} text-[10px]`}>{s.category}</span>
-                    <div className="flex items-center gap-2">
-                      {s.confidence && <span className="text-[10px] text-muted-foreground italic">{s.confidence}</span>}
-                      {isSelected && <Check className="w-4 h-4 text-accent" />}
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-5">
+              {sectionOrder.map(sectionKey => {
+                const items = groupedSuggestions[sectionKey];
+                if (!items || items.length === 0) return null;
+                const isWarningSection = sectionKey === "warnings";
+                return (
+                  <div key={sectionKey}>
+                    <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+                      {sections[sectionKey]}
+                    </h4>
+                    <div className="space-y-2">
+                      {items.map((s, i) => {
+                        const selected = isInBasket(s);
+                        return (
+                          <div
+                            key={`${sectionKey}-${i}`}
+                            onClick={() => toggleSuggestion(s)}
+                            className={`glass-card p-3.5 transition-all duration-200 ${
+                              isWarningSection
+                                ? "border-destructive/30 bg-destructive/5 cursor-default"
+                                : selected
+                                  ? "suggestion-card-selected cursor-pointer"
+                                  : "cursor-pointer hover:border-primary/50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <span className={`status-badge ${getCategoryColor(s.category)} text-[10px]`}>
+                                {isWarningSection && "⚠ "}{s.category}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {s.confidence && (
+                                  <span className={`text-[10px] italic ${
+                                    s.confidence === "High match" ? "text-accent" : s.confidence === "Possible" ? "text-warning" : "text-muted-foreground"
+                                  }`}>{s.confidence}</span>
+                                )}
+                                {selected && <Check className="w-4 h-4 text-accent" />}
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium text-foreground mt-2">{s.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{s.detail}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-foreground mt-2">{s.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{s.detail}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Generation Basket */}
-          <div className="border-t border-border p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-foreground">{selectedItems.length} items selected</span>
+                );
+              })}
             </div>
-            {selectedItems.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {selectedItems.map(i => (
-                  <span key={i} className="status-badge bg-accent/20 text-accent text-[10px] gap-1">
-                    {demoSuggestions[i].title.length > 25 ? demoSuggestions[i].title.slice(0, 25) + "…" : demoSuggestions[i].title}
-                    <button onClick={(e) => { e.stopPropagation(); toggleItem(i); }}><X className="w-3 h-3" /></button>
-                  </span>
+          </ScrollArea>
+
+          {/* ─── Generation Basket ────────────────────── */}
+          <div className="border-t border-border p-3 space-y-2 bg-surface">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-medium text-foreground">Generation Basket</span>
+              </div>
+              <span className="status-badge bg-primary/20 text-primary text-[10px]">{basketItems.length} items</span>
+            </div>
+            {basketItems.length > 0 && (
+              <div className="max-h-28 overflow-y-auto space-y-1">
+                {basketItems.map(item => (
+                  <div key={item.id} className="flex items-center justify-between gap-2 py-1 px-2 rounded bg-secondary/50">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`status-badge ${item.isCustom ? "bg-secondary text-muted-foreground" : getCategoryColor(item.category)} text-[9px] shrink-0 px-1.5`}>
+                        {item.isCustom ? "Custom" : item.category}
+                      </span>
+                      <span className="text-[11px] text-foreground truncate">{item.title}</span>
+                    </div>
+                    <button onClick={() => removeFromBasket(item.id)} className="text-muted-foreground hover:text-destructive shrink-0">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -392,12 +513,14 @@ export default function LiveSession() {
                 placeholder="Add custom item..."
                 onKeyDown={e => { if (e.key === "Enter") addCustomToBasket(); }}
                 className="bg-secondary border-border text-foreground placeholder:text-muted-foreground text-xs h-8" />
-              <Button size="sm" variant="outline" onClick={addCustomToBasket} className="border-border text-foreground h-8 px-2">
+              <Button size="sm" variant="outline" onClick={addCustomToBasket} disabled={!customBasketItem.trim()} className="border-border text-foreground h-8 px-2">
                 <Plus className="w-3 h-3" />
               </Button>
             </div>
-            <Button size="sm" disabled className="w-full text-xs" variant="outline">
-              Generate Documents (after session)
+            <Button size="sm" disabled={!sessionEnded || basketItems.length === 0}
+              onClick={() => navigate(`/session/${id}/documents`)} className="w-full text-xs gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              Generate Documents {!sessionEnded && "(after session)"}
             </Button>
           </div>
         </div>
@@ -407,25 +530,15 @@ export default function LiveSession() {
           <div className="p-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">My Notes</span>
           </div>
-          {/* Toolbar */}
           <div className="px-3 py-1.5 border-b border-border flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("bold")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-              <Bold className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("bullet")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-              <List className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("highlight")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-              <Highlighter className="w-3.5 h-3.5" />
-            </Button>
+            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("bold")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"><Bold className="w-3.5 h-3.5" /></Button>
+            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("bullet")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"><List className="w-3.5 h-3.5" /></Button>
+            <Button variant="ghost" size="sm" onClick={() => insertNoteFormat("highlight")} className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"><Highlighter className="w-3.5 h-3.5" /></Button>
           </div>
           <div className="flex-1 p-3">
-            <Textarea
-              value={notes}
-              onChange={e => handleNotesChange(e.target.value)}
+            <Textarea value={notes} onChange={e => handleNotesChange(e.target.value)}
               placeholder="Type your notes here...&#10;&#10;Press Enter twice for auto-timestamp"
-              className="h-full resize-none bg-transparent border-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-0 text-sm font-mono leading-relaxed"
-            />
+              className="h-full resize-none bg-transparent border-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-0 text-sm font-mono leading-relaxed" />
           </div>
           <div className="px-3 py-1.5 border-t border-border text-right">
             <span className="text-[10px] text-muted-foreground">{notes.length} chars</span>
