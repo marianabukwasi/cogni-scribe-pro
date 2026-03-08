@@ -1,19 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Clock, Calendar, Plus, AlertTriangle } from "lucide-react";
 
+const demoSessions = [
+  { id: "demo-1", client_name: "Jean Müller", session_type: "Follow-up", status: "ended", created_at: new Date(Date.now() - 86400000).toISOString(), duration_seconds: 1800 },
+  { id: "demo-2", client_name: "Anonymous", session_type: "Intake Interview", status: "ended", created_at: new Date(Date.now() - 3 * 86400000).toISOString(), duration_seconds: 2700 },
+  { id: "demo-3", client_name: "Maria Kovács", session_type: "Initial Consultation", status: "ended", created_at: new Date(Date.now() - 5 * 86400000).toISOString(), duration_seconds: 2100 },
+];
+
 export default function Sessions() {
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
+    if (isDemo) {
+      setSessions(demoSessions);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     supabase.from("sessions").select("*").eq("professional_id", profile.user_id)
       .order("created_at", { ascending: false }).then(({ data, error: err }) => {
@@ -21,7 +34,7 @@ export default function Sessions() {
         if (err) setError("Unable to load sessions — please check your connection.");
         setLoading(false);
       });
-  }, [profile]);
+  }, [profile, isDemo]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

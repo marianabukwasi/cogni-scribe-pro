@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useDemo } from "@/contexts/DemoContext";
 import { Plus, Search, Users, Calendar, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -96,6 +97,7 @@ const emptyForm: ClientForm = {
 
 export default function Clients() {
   const { profile } = useAuth();
+  const { isDemo } = useDemo();
   const [clients, setClients] = useState<any[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<string, { count: number; lastDate: string | null }>>({});
   const [search, setSearch] = useState("");
@@ -111,6 +113,15 @@ export default function Clients() {
 
   const load = async () => {
     if (!profile) return;
+    if (isDemo) {
+      setClients([
+        { id: "demo-c1", first_name: "Jean", last_name: "Müller", case_status: "active", preferred_language: "French", date_of_birth: "1984-03-15", updated_at: new Date().toISOString(), current_medications: ["Fluoxetine"], allergies: [] },
+        { id: "demo-c2", first_name: "Maria", last_name: "Kovács", case_status: "active", preferred_language: "Hungarian", date_of_birth: "1990-07-22", updated_at: new Date(Date.now() - 86400000).toISOString(), current_medications: [], allergies: [] },
+        { id: "demo-c3", first_name: "Anonymous", last_name: "Beneficiary", case_status: "pending", preferred_language: "Arabic", updated_at: new Date(Date.now() - 2 * 86400000).toISOString(), current_medications: [], allergies: [] },
+      ]);
+      setSessionCounts({ "demo-c1": { count: 3, lastDate: new Date().toISOString() }, "demo-c2": { count: 1, lastDate: new Date(Date.now() - 86400000).toISOString() } });
+      return;
+    }
     let q = supabase.from("clients").select("*").eq("professional_id", profile.user_id).order("updated_at", { ascending: false });
     if (filter === "recent") q = q.gte("updated_at", new Date(Date.now() - 30 * 86400000).toISOString());
     if (filter === "active") q = q.eq("case_status", "active");
@@ -136,7 +147,7 @@ export default function Clients() {
     }
   };
 
-  useEffect(() => { load(); }, [profile, filter]);
+  useEffect(() => { load(); }, [profile, filter, isDemo]);
 
   const handleAdd = async () => {
     if (!form.first_name || !form.last_name) { toast.error("Name is required"); return; }
