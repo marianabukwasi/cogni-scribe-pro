@@ -500,55 +500,48 @@ export default function LiveSession() {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* ─── Top Bar ─────────────────────────────────── */}
-      <div className="h-14 bg-surface border-b border-border flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-foreground">{session?.client_name || "Session"}</span>
-          {session?.session_type && <span className="status-badge bg-secondary text-muted-foreground text-[10px]">{session.session_type}</span>}
+      <div className="h-12 md:h-14 bg-surface border-b border-border flex items-center justify-between px-3 md:px-4 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0">
+          <span className="text-xs md:text-sm font-medium text-foreground truncate">{session?.client_name || "Session"}</span>
+          {session?.session_type && <span className="status-badge bg-secondary text-muted-foreground text-[9px] md:text-[10px] hidden sm:inline-flex">{session.session_type}</span>}
           
           {/* Connection status indicator */}
           {!isDemo && liveStarted && !sessionEnded && (
             <span className={`flex items-center gap-1 text-[10px] ${deepgram.isOnline ? "text-accent" : "text-destructive"}`}>
               {deepgram.isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {deepgram.isOnline ? "Connected" : "Offline"}
+              <span className="hidden sm:inline">{deepgram.isOnline ? "Connected" : "Offline"}</span>
             </span>
           )}
 
           {/* Offline buffer indicator */}
           {!isDemo && !deepgram.isOnline && deepgram.bufferedSeconds > 0 && (
-            <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1">
+            <span className="status-badge bg-warning/20 text-warning text-[10px] gap-1 hidden sm:inline-flex">
               <Download className="w-3 h-3" />{deepgram.bufferedSeconds}s buffered
             </span>
           )}
 
           {/* Processing buffer indicator */}
           {deepgram.isProcessingBuffer && (
-            <span className="status-badge bg-primary/20 text-primary text-[10px] gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />Processing buffered audio
-            </span>
-          )}
-
-          {/* Buffer warning */}
-          {deepgram.bufferWarning && (
-            <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1">
-              <AlertTriangle className="w-3 h-3" />{deepgram.bufferWarning}
+            <span className="status-badge bg-primary/20 text-primary text-[10px] gap-1 hidden sm:inline-flex">
+              <Loader2 className="w-3 h-3 animate-spin" />Processing
             </span>
           )}
 
           {/* Audio cleared confirmation */}
           {deepgram.audioClearedConfirm && (
-            <span className="status-badge bg-accent/20 text-accent text-[10px] gap-1">
-              <Check className="w-3 h-3" />Audio permanently cleared from this device
+            <span className="status-badge bg-accent/20 text-accent text-[10px] gap-1 hidden sm:inline-flex">
+              <Check className="w-3 h-3" />Audio cleared
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           {/* Corner flash alert indicator — always active */}
           {alertSystem.unreadCount > 0 && (
             <button onClick={() => setShowAlerts(!showAlerts)} className="relative flex items-center gap-1.5">
               <span className={`w-3 h-3 rounded-full ${
                 alertSystem.criticalUnread > 0 ? "bg-destructive" : "bg-warning"
               } ${alertSystem.flashCount < 6 ? "animate-pulse" : ""}`} />
-              <span className={`text-xs font-medium ${alertSystem.criticalUnread > 0 ? "text-destructive" : "text-warning"}`}>
+              <span className={`text-xs font-medium hidden sm:inline ${alertSystem.criticalUnread > 0 ? "text-destructive" : "text-warning"}`}>
                 {alertSystem.unreadCount} warning{alertSystem.unreadCount !== 1 ? "s" : ""}
               </span>
             </button>
@@ -556,30 +549,31 @@ export default function LiveSession() {
 
           {/* Offline transcription paused */}
           {!isDemo && liveStarted && !deepgram.isOnline && !sessionEnded && (
-            <span className="status-badge bg-destructive/20 text-destructive text-[10px] gap-1">
-              <WifiOff className="w-3 h-3" />Offline — Transcription paused
+            <span className="status-badge bg-destructive/20 text-destructive text-[9px] md:text-[10px] gap-1">
+              <WifiOff className="w-3 h-3" /><span className="hidden sm:inline">Offline — </span>Paused
             </span>
           )}
 
           {!paused && !sessionEnded && deepgram.isOnline && (
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-destructive pulse-recording" />
-              <span className="text-xs font-semibold text-destructive tracking-wide">LIVE</span>
+              <span className="w-2 md:w-2.5 h-2 md:h-2.5 rounded-full bg-destructive pulse-recording" />
+              <span className="text-[10px] md:text-xs font-semibold text-destructive tracking-wide">LIVE</span>
             </div>
           )}
-          <span className={`font-mono text-sm tabular-nums ${!paused && !sessionEnded ? "text-destructive" : "text-muted-foreground"}`}>
-            <Clock className="w-3.5 h-3.5 inline mr-1" />{formatTime(timer)}
+          <span className={`font-mono text-xs md:text-sm tabular-nums ${!paused && !sessionEnded ? "text-destructive" : "text-muted-foreground"}`}>
+            <Clock className="w-3 md:w-3.5 h-3 md:h-3.5 inline mr-1" />{formatTime(timer)}
           </span>
           {!sessionEnded && (
             <>
-              <Button variant="ghost" size="sm" onClick={togglePause} className="text-foreground gap-1.5">
-                {paused ? <><Play className="w-4 h-4" /> Resume</> : <><Pause className="w-4 h-4" /> Pause</>}
+              <Button variant="ghost" size="sm" onClick={togglePause} className="text-foreground gap-1 h-8 px-2 md:px-3">
+                {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                <span className="hidden md:inline">{paused ? "Resume" : "Pause"}</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setShowScrubDialog(true)} className="text-destructive gap-1.5">
-                <Shield className="w-4 h-4" />Privacy: Scrub Detail
+              <Button variant="ghost" size="sm" onClick={() => setShowScrubDialog(true)} className="text-destructive gap-1 h-8 px-2 hidden md:flex">
+                <Shield className="w-4 h-4" /><span className="hidden lg:inline">Privacy: Scrub Detail</span>
               </Button>
-              <Button size="sm" onClick={() => setShowEndDialog(true)} className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-1.5">
-                <Square className="w-3.5 h-3.5" />End Session
+              <Button size="sm" onClick={() => setShowEndDialog(true)} className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-1 h-8 px-2 md:px-3">
+                <Square className="w-3.5 h-3.5" /><span className="hidden sm:inline">End Session</span>
               </Button>
             </>
           )}
