@@ -607,7 +607,19 @@ export default function PostSession() {
           <TabsContent value="flags" className="flex-1 overflow-hidden mt-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-3">
-                {flags.length === 0 && (
+                {flagsLoading && (
+                  <>
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="glass-card p-5 space-y-3">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-56" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-4/5" />
+                      </div>
+                    ))}
+                  </>
+                )}
+                {!flagsLoading && flags.length === 0 && (
                   <div className="text-center py-12">
                     <Check className="w-10 h-10 text-accent mx-auto mb-3 opacity-40" />
                     <p className="text-sm text-muted-foreground">No flags identified for this session.</p>
