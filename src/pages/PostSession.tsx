@@ -532,23 +532,43 @@ export default function PostSession() {
         {/* Tabs */}
         <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="mx-4 mt-3 bg-surface border border-border w-fit">
-            <TabsTrigger value="summary" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">Summary</TabsTrigger>
-            <TabsTrigger value="flags" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">
+            <TabsTrigger value="summary" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
+              Summary {summaryDone && !summaryLoading && <Check className="w-3 h-3 text-accent" />}
+              {summaryLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+            </TabsTrigger>
+            <TabsTrigger value="flags" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
               Points to Note
-              {unreviewedCount > 0 && (
+              {flagsDone && !flagsLoading && <Check className="w-3 h-3 text-accent" />}
+              {flagsLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+              {!flagsLoading && unreviewedCount > 0 && (
                 <span className={`ml-1.5 w-5 h-5 rounded-full text-[10px] inline-flex items-center justify-center ${criticalUnreviewed > 0 ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>
                   {unreviewedCount}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="forward" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground">Way Forward</TabsTrigger>
+            <TabsTrigger value="forward" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-muted-foreground gap-1.5">
+              Way Forward {forwardDone && !forwardLoading && <Check className="w-3 h-3 text-accent" />}
+              {forwardLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+            </TabsTrigger>
           </TabsList>
 
           {/* ─── Summary Tab ────────────────────────── */}
           <TabsContent value="summary" className="flex-1 overflow-hidden mt-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-4">
-                {Object.entries(summaryFields).map(([field, value]) => (
+                {summaryLoading && (
+                  <>
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="glass-card p-5 space-y-3">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-4/5" />
+                        <Skeleton className="h-3 w-3/5" />
+                      </div>
+                    ))}
+                  </>
+                )}
+                {!summaryLoading && Object.entries(summaryFields).map(([field, value]) => (
                   <div key={field} className="glass-card p-5">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-semibold text-primary">{field}</h3>
